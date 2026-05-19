@@ -1,0 +1,329 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 229 62% 5%;
+    --foreground: 210 40% 98%;
+    --card: 218 46% 12%;
+    --card-foreground: 210 40% 98%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 218 48% 8%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 218 40% 14%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 188 86% 53%;
+    --accent-foreground: 229 62% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 216 39% 19%;
+    --input: 216 39% 19%;
+    --ring: 188 86% 53%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: dark;
+    scrollbar-color: rgba(34, 211, 238, 0.36) rgba(5, 8, 22, 0.3);
+    scrollbar-width: thin;
+  }
+
+  body {
+    @apply min-h-screen bg-background text-foreground antialiased;
+    background:
+      radial-gradient(circle at 14% -8%, rgba(37, 99, 235, 0.18), transparent 32rem),
+      radial-gradient(circle at 88% 2%, rgba(34, 211, 238, 0.11), transparent 28rem),
+      linear-gradient(135deg, #050816 0%, #0b1220 48%, #02040d 100%);
+    font-family:
+      Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      sans-serif;
+  }
+
+  ::selection {
+    background: rgba(34, 211, 238, 0.32);
+    color: #fff;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(5, 8, 22, 0.3);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid rgba(5, 8, 22, 0.3);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.5), rgba(30, 45, 69, 0.7));
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    @apply border border-border bg-graphite-900/80 shadow-showroom backdrop-blur-xl;
+    background-image:
+      linear-gradient(135deg, rgba(248, 250, 252, 0.05), transparent 42%),
+      linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(34, 211, 238, 0.05));
+  }
+
+  .carbon-panel {
+    @apply bg-card/90 shadow-showroom backdrop-blur-xl;
+    background-image:
+      repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 8px),
+      linear-gradient(135deg, rgba(248, 250, 252, 0.045), transparent 38%),
+      linear-gradient(180deg, rgba(11, 18, 32, 0.7), rgba(5, 8, 22, 0.44));
+    box-shadow:
+      0 18px 52px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(248, 250, 252, 0.06),
+      inset 0 0 0 1px rgba(148, 163, 184, 0.12);
+  }
+
+  .cockpit-surface {
+    @apply relative overflow-hidden bg-graphite-900/85 shadow-showroom backdrop-blur-xl;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(37, 99, 235, 0.14), transparent 22rem),
+      radial-gradient(circle at 86% 10%, rgba(34, 211, 238, 0.12), transparent 24rem),
+      linear-gradient(145deg, rgba(16, 26, 43, 0.94), rgba(5, 8, 22, 0.92));
+    box-shadow:
+      0 24px 70px rgba(0, 0, 0, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.055),
+      inset 0 0 0 1px rgba(148, 163, 184, 0.1);
+  }
+
+  .moto-cut-card {
+    @apply relative overflow-hidden;
+    border-radius: 18px 8px 18px 8px;
+    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+  }
+
+  .ai-light-sheen {
+    @apply pointer-events-none absolute inset-0;
+    background:
+      linear-gradient(180deg, rgba(34, 211, 238, 0.16), transparent 1px),
+      radial-gradient(circle at 18% 0%, rgba(37, 99, 235, 0.1), transparent 22rem),
+      radial-gradient(circle at 88% 12%, rgba(34, 211, 238, 0.08), transparent 18rem);
+    opacity: 0.6;
+  }
+
+  .ai-grid-glow {
+    background-image:
+      radial-gradient(circle at 22% 8%, rgba(37, 99, 235, 0.12), transparent 24rem),
+      radial-gradient(circle at 78% 16%, rgba(34, 211, 238, 0.08), transparent 22rem),
+      linear-gradient(rgba(34, 211, 238, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.035) 1px, transparent 1px);
+    background-size: auto, auto, 64px 64px, 64px 64px;
+  }
+
+  .premium-scrollbar {
+    scrollbar-color: rgba(34, 211, 238, 0.34) rgba(5, 8, 22, 0.18);
+    scrollbar-width: thin;
+  }
+
+  .premium-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .premium-scrollbar::-webkit-scrollbar-track {
+    background: rgba(5, 8, 22, 0.18);
+  }
+
+  .premium-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(34, 211, 238, 0.46), rgba(30, 45, 69, 0.7));
+  }
+
+  .gradient-border {
+    position: relative;
+  }
+
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(34, 211, 238, 0.42), rgba(37, 99, 235, 0.26), rgba(148, 163, 184, 0.12));
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+
+  .active-nav-rail {
+    position: relative;
+  }
+
+  .active-nav-rail::before {
+    content: "";
+    position: absolute;
+    left: -0.75rem;
+    top: 0.55rem;
+    bottom: 0.55rem;
+    width: 3px;
+    background: linear-gradient(180deg, #22d3ee, #2563eb);
+    box-shadow: 0 0 18px rgba(34, 211, 238, 0.42);
+  }
+
+  .moto-heading {
+    @apply font-black uppercase text-foreground;
+    letter-spacing: 0.12em;
+    text-shadow:
+      0 0 18px rgba(34, 211, 238, 0.24),
+      0 0 28px rgba(37, 99, 235, 0.16);
+  }
+
+  .ai-glow {
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.18),
+      0 0 30px rgba(34, 211, 238, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  }
+
+  .graph-panel {
+    @apply border border-border bg-carbon-950/90 shadow-showroom backdrop-blur-xl;
+    background-image:
+      linear-gradient(rgba(34, 211, 238, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.055) 1px, transparent 1px),
+      radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.16), transparent 34rem);
+  }
+
+  .graph-canvas-shell {
+    @apply border border-border bg-carbon-950/90 shadow-showroom backdrop-blur-xl;
+    isolation: isolate;
+    background:
+      radial-gradient(circle at var(--selected-x, 50%) var(--selected-y, 50%), rgba(34, 211, 238, 0.15), transparent 18rem),
+      radial-gradient(circle at 20% 20%, rgba(37, 99, 235, 0.14), transparent 24rem),
+      radial-gradient(circle at 80% 10%, rgba(124, 92, 255, 0.1), transparent 26rem),
+      linear-gradient(135deg, rgba(248, 250, 252, 0.04), transparent 36%),
+      #050816;
+  }
+
+  .graph-canvas-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(rgba(34, 211, 238, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(circle at center, black, transparent 78%);
+    opacity: 0.45;
+    z-index: 0;
+  }
+
+  .graph-canvas-shell .react-flow {
+    background: transparent;
+    position: relative;
+    z-index: 1;
+  }
+
+  .graph-canvas-shell .react-flow__pane {
+    cursor: grab;
+  }
+
+  .graph-canvas-shell .react-flow__pane:active {
+    cursor: grabbing;
+  }
+
+  .graph-canvas-shell .react-flow__attribution {
+    @apply border border-border bg-carbon-950/75 text-muted-foreground;
+  }
+
+  .graph-canvas-shell .react-flow__edge-path {
+    animation: graph-edge-flow 1.9s linear infinite;
+  }
+
+  .graph-canvas-shell .react-flow__edge.graph-edge-active .react-flow__edge-path {
+    animation-duration: 1s;
+  }
+
+  .graph-canvas-shell .react-flow__edge-textbg {
+    stroke: rgba(34, 211, 238, 0.18);
+    stroke-width: 1px;
+  }
+
+  .graph-controls {
+    @apply overflow-hidden rounded-md border border-border bg-carbon-950/90 shadow-showroom backdrop-blur-xl;
+  }
+
+  .graph-controls .react-flow__controls-button {
+    @apply border-border bg-carbon-950/90 text-foreground transition hover:bg-neon-cyan/10;
+  }
+
+  .graph-controls .react-flow__controls-button svg {
+    fill: currentColor;
+  }
+
+  .graph-neon-node {
+    background:
+      radial-gradient(circle at 50% 44%, color-mix(in srgb, var(--node-color) 18%, transparent), transparent 58%),
+      rgba(14, 17, 23, 0.92);
+  }
+
+  .graph-neon-node::before {
+    content: "";
+    position: absolute;
+    inset: -16px;
+    border-radius: 999px;
+    background: radial-gradient(circle, color-mix(in srgb, var(--node-color) 28%, transparent), transparent 64%);
+    opacity: 0.34;
+    filter: blur(5px);
+    z-index: -1;
+  }
+
+  .graph-neon-node-selected {
+    animation: graph-node-pulse 1.8s ease-in-out infinite;
+  }
+
+  .graph-neon-node-connected {
+    filter: brightness(1.18) saturate(1.24);
+  }
+
+  .graph-detail-panel {
+    @apply border border-neon-cyan/25 bg-card/90 shadow-showroom backdrop-blur-xl;
+    background-image:
+      linear-gradient(135deg, rgba(34, 211, 238, 0.08), transparent 42%),
+      radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.12), transparent 22rem);
+  }
+
+  .neon-text {
+    text-shadow:
+      0 0 16px rgba(34, 211, 238, 0.28),
+      0 0 24px rgba(37, 99, 235, 0.18);
+  }
+
+  @keyframes graph-node-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      box-shadow:
+        0 0 26px color-mix(in srgb, var(--node-color) 72%, transparent),
+        0 0 56px color-mix(in srgb, var(--node-color) 35%, transparent),
+        inset 0 0 28px color-mix(in srgb, var(--node-color) 28%, transparent);
+    }
+    50% {
+      transform: scale(1.035);
+      box-shadow:
+        0 0 38px color-mix(in srgb, var(--node-color) 82%, transparent),
+        0 0 82px color-mix(in srgb, var(--node-color) 45%, transparent),
+        inset 0 0 34px color-mix(in srgb, var(--node-color) 34%, transparent);
+    }
+  }
+
+  @keyframes graph-edge-flow {
+    to {
+      stroke-dashoffset: -34;
+    }
+  }
+}
