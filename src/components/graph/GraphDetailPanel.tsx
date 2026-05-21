@@ -10,17 +10,93 @@ interface GraphDetailPanelProps {
   onClose: () => void;
 }
 
+type PropertyRow = {
+  key: string;
+  value: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function formatPropertyKey(key: string) {
+  return key
+    .split(".")
+    .map((part) =>
+      part
+        .replace(/[_-]+/g, " ")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/^./, (char) => char.toUpperCase()),
+    )
+    .join(" / ");
+}
+
+function formatPropertyValue(value: unknown): string {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  if (typeof value === "boolean") {
+    return value ? "Yes" : "No";
+  }
+
+  if (typeof value === "number" || typeof value === "string") {
+    return String(value);
+  }
+
+  return String(value);
+}
+
+function flattenProperties(properties: Record<string, unknown>, prefix = ""): PropertyRow[] {
+  return Object.entries(properties).flatMap(([key, value]) => {
+    const nextKey = prefix ? `${prefix}.${key}` : key;
+
+    if (isRecord(value)) {
+      return flattenProperties(value, nextKey);
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) {
+        return [{ key: nextKey, value: "-" }];
+      }
+
+      if (value.every((item) => !isRecord(item) && !Array.isArray(item))) {
+        return [{ key: nextKey, value: value.map(formatPropertyValue).join(", ") }];
+      }
+
+      return value.flatMap((item, index) => {
+        const itemKey = `${nextKey}.${index + 1}`;
+        return isRecord(item) ? flattenProperties(item, itemKey) : [{ key: itemKey, value: formatPropertyValue(item) }];
+      });
+    }
+
+    return [{ key: nextKey, value: formatPropertyValue(value) }];
+  });
+}
+
 function PropertiesBlock({ properties }: { properties?: Record<string, unknown> }) {
   if (!properties || Object.keys(properties).length === 0) {
     return null;
   }
 
+  const rows = flattenProperties(properties);
+
   return (
     <div>
       <p className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Properties</p>
-      <pre className="premium-scrollbar max-h-56 overflow-auto rounded-[14px] bg-carbon-950/80 p-3 text-xs leading-5 text-neon-steel shadow-inner ring-1 ring-neon-cyan/20">
-        {JSON.stringify(properties, null, 2)}
-      </pre>
+      <dl className="overflow-hidden rounded-[14px] bg-carbon-950/70 text-sm shadow-inner ring-1 ring-neon-cyan/20">
+        {rows.map((row, index) => (
+          <div
+            key={`${row.key}-${index}`}
+            className="grid gap-1 border-b border-white/10 px-3 py-3 last:border-b-0"
+          >
+            <dt className="text-[0.68rem] font-black uppercase tracking-wider text-muted-foreground">{formatPropertyKey(row.key)}</dt>
+            <dd className="break-words font-semibold leading-6 text-foreground">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 }
