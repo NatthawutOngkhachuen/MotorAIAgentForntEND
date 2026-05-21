@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import { AlertTriangle, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NormalizedChatMessage } from "@/services/chatService";
@@ -18,6 +18,174 @@ function formatResponseTime(durationMs: number) {
   }
 
   return `ตอบใน ${secondsText} วินาที`;
+}
+
+type ChatContentBlock =
+  | {
+      type: "paragraph";
+      text: string;
+    }
+  | {
+      type: "table";
+      headers: string[];
+      rows: string[][];
+    };
+
+function parsePipeCells(line: string) {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isPipeTableRow(line: string) {
+  const trimmed = line.trim();
+  return trimmed.startsWith("|") && trimmed.endsWith("|") && parsePipeCells(trimmed).length > 1;
+}
+
+function isTableSeparator(line: string) {
+  if (!isPipeTableRow(line)) {
+    return false;
+  }
+
+  return parsePipeCells(line).every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s/g, "")));
+}
+
+function parseAssistantContent(content: string): ChatContentBlock[] {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const blocks: ChatContentBlock[] = [];
+  const paragraphLines: string[] = [];
+
+  const flushParagraph = () => {
+    const text = paragraphLines.join("\n").trim();
+    if (text) {
+      blocks.push({ type: "paragraph", text });
+    }
+    paragraphLines.length = 0;
+  };
+
+  let index = 0;
+  while (index < lines.length) {
+    const line = lines[index];
+    const nextLine = lines[index + 1];
+
+    if (isPipeTableRow(line) && nextLine && isTableSeparator(nextLine)) {
+      flushParagraph();
+      const headers = parsePipeCells(line);
+      const rows: string[][] = [];
+      index += 2;
+
+      while (index < lines.length && isPipeTableRow(lines[index])) {
+        if (!isTableSeparator(lines[index])) {
+          rows.push(parsePipeCells(lines[index]));
+        }
+        index += 1;
+      }
+
+      blocks.push({ type: "table", headers, rows });
+      continue;
+    }
+
+    if (isTableSeparator(line)) {
+      index += 1;
+      continue;
+    }
+
+    if (!line.trim()) {
+      flushParagraph();
+      index += 1;
+      continue;
+    }
+
+    paragraphLines.push(line);
+    index += 1;
+  }
+
+  flushParagraph();
+  return blocks;
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const boldPattern = /\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = boldPattern.exec(text))) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    nodes.push(
+      <strong key={`${match.index}-${match[1]}`} className="font-black text-foreground">
+        {match[1]}
+      </strong>,
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [text];
+}
+
+function AssistantMessageContent({ content }: { content: string }) {
+  const blocks = parseAssistantContent(content);
+
+  if (blocks.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4 text-base leading-7 text-foreground">
+      {blocks.map((block, blockIndex) => {
+        if (block.type === "table") {
+          return (
+            <div key={`table-${blockIndex}`} className="premium-scrollbar -mx-1 overflow-x-auto pb-1">
+              <table className="min-w-full border-separate border-spacing-0 overflow-hidden rounded-[14px] text-left text-sm shadow-inner ring-1 ring-neon-cyan/20">
+                <thead>
+                  <tr>
+                    {block.headers.map((header, headerIndex) => (
+                      <th
+                        key={`${header}-${headerIndex}`}
+                        className="border-b border-neon-cyan/20 bg-neon-cyan/10 px-3 py-2 font-black uppercase tracking-wide text-neon-cyan"
+                      >
+                        {renderInlineMarkdown(header)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {block.rows.map((row, rowIndex) => (
+                    <tr key={`row-${rowIndex}`} className="odd:bg-white/70 even:bg-slate-50/75">
+                      {block.headers.map((_, cellIndex) => (
+                        <td
+                          key={`cell-${rowIndex}-${cellIndex}`}
+                          className="border-b border-border/70 px-3 py-2 align-top text-foreground last:border-b-0"
+                        >
+                          {renderInlineMarkdown(row[cellIndex] ?? "")}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+
+        return (
+          <p key={`paragraph-${blockIndex}`} className="whitespace-pre-line break-words">
+            {renderInlineMarkdown(block.text)}
+          </p>
+        );
+      })}
+    </div>
+  );
 }
 
 export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps) {
@@ -41,7 +209,11 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
             ASSISTANT
           </div>
         ) : null}
-        <p className={cn("whitespace-pre-wrap break-words text-base leading-7", isUser ? "text-white" : "text-foreground")}>{message.content}</p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap break-words text-base leading-7 text-white">{message.content}</p>
+        ) : (
+          <AssistantMessageContent content={message.content} />
+        )}
         {!isUser && typeof message.responseTimeMs === "number" ? (
           <p className="mt-3 text-xs font-medium text-muted-foreground">{formatResponseTime(message.responseTimeMs)}</p>
         ) : null}

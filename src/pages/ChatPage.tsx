@@ -43,7 +43,17 @@ function formatSessionTime(session: ChatSession) {
 
 const NEAR_BOTTOM_THRESHOLD = 120;
 const WELCOME_MESSAGE_ID = "local-assistant-welcome";
-const WELCOME_MESSAGE = "สวัสดีครับ อยากให้ช่วยแนะนำมอเตอร์ไซค์แบบไหน บอกงบประมาณ การใช้งาน หรือรุ่นที่สนใจมาได้เลยครับ";
+const DEFAULT_RECOMMENDATION_MODE: RecommendationMode = "graph-rag";
+const MODE_WELCOME_MESSAGES: Record<RecommendationMode, string> = {
+  "graph-rag": "สวัสดีครับ ถามเรื่องรุ่น ยี่ห้อ หรือคุณสมบัติที่สนใจได้เลยครับ เช่น งบประมาณเท่านี้ควรเลือกรุ่นไหน หรือรุ่นไหนเหมาะกับการใช้งานของคุณ",
+  "user-based": "สวัสดีครับ บอกงบประมาณ การใช้งาน สไตล์ที่ชอบ หรือรุ่นที่สนใจมาได้เลยครับ ผมจะช่วยแนะนำตัวเลือกที่เหมาะกับคุณ",
+  "cluster-based": "สวัสดีครับ บอกความต้องการหรือรุ่นที่สนใจมาได้เลยครับ ผมจะช่วยจัดกลุ่มตัวเลือกที่ใกล้เคียงและน่าสนใจให้",
+};
+const RECOMMENDATION_MODES: Array<{ label: string; value: RecommendationMode }> = [
+  { label: "User", value: "user-based" },
+  { label: "Cluster", value: "cluster-based" },
+  { label: "GraphRAG", value: "graph-rag" },
+];
 
 function isNearBottom(container: HTMLDivElement | null) {
   if (!container) {
@@ -84,10 +94,21 @@ function withAssistantResponseTimes(messages: NormalizedChatMessage[]) {
   });
 }
 
+function createWelcomeMessage(mode: RecommendationMode): NormalizedChatMessage {
+  return {
+    id: WELCOME_MESSAGE_ID,
+    role: "assistant",
+    content: MODE_WELCOME_MESSAGES[mode],
+  };
+}
+
 export function ChatPage() {
   const [message, setMessage] = useState("");
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
-  const [recommendationMode, setRecommendationMode] = useState<RecommendationMode>("user-based");
+  const [recommendationMode, setRecommendationMode] = useState<RecommendationMode>(DEFAULT_RECOMMENDATION_MODE);
+  const [localWelcomeMessage, setLocalWelcomeMessage] = useState<NormalizedChatMessage | null>(() =>
+    createWelcomeMessage(DEFAULT_RECOMMENDATION_MODE),
+  );
   const [transientMessages, setTransientMessages] = useState<NormalizedChatMessage[]>([]);
   const [transientSince, setTransientSince] = useState<number | null>(null);
   const [streamHasToken, setStreamHasToken] = useState(false);
@@ -230,26 +251,42 @@ export function ChatPage() {
       queryClient.removeQueries({ queryKey: ["chat-history", currentUserIdentity, sessionId] });
       if (sessionId === activeSessionId) {
         setActiveSessionId(undefined);
+        setLocalWelcomeMessage(createWelcomeMessage(recommendationMode));
         setTransientMessages([]);
         setTransientSince(null);
         setStreamHasToken(false);
       }
     },
   });
-  const messages = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
-  const displayedMessages = useMemo(() => {
-    if (!activeSessionId && messages.length === 0 && transientMessages.length === 0) {
-      return [
-        {
-          id: WELCOME_MESSAGE_ID,
-          role: "assistant",
-          content: WELCOME_MESSAGE,
-        } satisfies NormalizedChatMessage,
-      ];
-    }
+  const resetSendMutationRef = useRef(sendMutation.reset);
+  const resetStartMutationRef = useRef(startMutation.reset);
 
-    return withAssistantResponseTimes([...messages, ...transientMessages]);
-  }, [activeSessionId, messages, transientMessages]);
+  useEffect(() => {
+    resetSendMutationRef.current = sendMutation.reset;
+  }, [sendMutation.reset]);
+
+  useEffect(() => {
+    resetStartMutationRef.current = startMutation.reset;
+  }, [startMutation.reset]);
+
+  const resetChatSurface = useCallback((mode: RecommendationMode) => {
+    setActiveSessionId(undefined);
+    setLocalWelcomeMessage(createWelcomeMessage(mode));
+    setTransientMessages([]);
+    setTransientSince(null);
+    setStreamHasToken(false);
+    setShowScrollToLatest(false);
+    shouldAutoScrollRef.current = true;
+    lastHistoryScrollSessionRef.current = undefined;
+    resetSendMutationRef.current();
+    resetStartMutationRef.current();
+    setMessage("");
+  }, []);
+  const messages = useMemo(() => (activeSessionId ? historyQuery.data ?? [] : []), [activeSessionId, historyQuery.data]);
+  const displayedMessages = useMemo(() => {
+    const visibleMessages = [...messages, ...transientMessages].filter((item) => item.id !== WELCOME_MESSAGE_ID);
+    return withAssistantResponseTimes(localWelcomeMessage ? [localWelcomeMessage, ...visibleMessages] : visibleMessages);
+  }, [localWelcomeMessage, messages, transientMessages]);
   const messageScrollKey = useMemo(
     () => displayedMessages.map((item) => `${item.id}:${item.content.length}`).join("|"),
     [displayedMessages],
@@ -260,14 +297,9 @@ export function ChatPage() {
     !hasToken || isUnauthorizedError(sessionsQuery.error) || isUnauthorizedError(historyQuery.error) || isUnauthorizedError(sendMutation.error);
 
   useEffect(() => {
-    setActiveSessionId(undefined);
-    setTransientMessages([]);
-    setTransientSince(null);
-    setStreamHasToken(false);
-    setShowScrollToLatest(false);
-    shouldAutoScrollRef.current = true;
-    lastHistoryScrollSessionRef.current = undefined;
-  }, [currentUserIdentity, hasToken]);
+    resetChatSurface(DEFAULT_RECOMMENDATION_MODE);
+    setRecommendationMode(DEFAULT_RECOMMENDATION_MODE);
+  }, [currentUserIdentity, hasToken, resetChatSurface]);
 
   useEffect(() => {
     const hasPersistedMessages = (historyQuery.data?.length ?? 0) > 0;
@@ -355,16 +387,7 @@ export function ChatPage() {
   }
 
   function startNewChat() {
-    setActiveSessionId(undefined);
-    setTransientMessages([]);
-    setTransientSince(null);
-    setStreamHasToken(false);
-    setShowScrollToLatest(false);
-    shouldAutoScrollRef.current = true;
-    lastHistoryScrollSessionRef.current = undefined;
-    sendMutation.reset();
-    startMutation.reset();
-    setMessage("");
+    resetChatSurface(recommendationMode);
   }
 
   function selectSession(sessionId: string) {
@@ -372,6 +395,7 @@ export function ChatPage() {
       return;
     }
     setActiveSessionId(sessionId);
+    setLocalWelcomeMessage(null);
     setTransientMessages([]);
     setTransientSince(null);
     setStreamHasToken(false);
@@ -387,9 +411,9 @@ export function ChatPage() {
       return;
     }
 
+    void queryClient.invalidateQueries({ queryKey: sessionsQueryKey });
     setRecommendationMode(mode);
-    sendMutation.reset();
-    startMutation.reset();
+    resetChatSurface(mode);
   }
 
   function deleteSession(event: MouseEvent<HTMLButtonElement>, sessionId: string) {
@@ -526,11 +550,7 @@ export function ChatPage() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <div className="grid grid-cols-3 rounded-md bg-carbon-950/55 p-1 ring-1 ring-white/10">
-                    {[
-                      { label: "User", value: "user-based" },
-                      { label: "Cluster", value: "cluster-based" },
-                      { label: "GraphRAG", value: "graph-rag" },
-                    ].map((mode) => (
+                    {RECOMMENDATION_MODES.map((mode) => (
                       <button
                         key={mode.value}
                         type="button"
