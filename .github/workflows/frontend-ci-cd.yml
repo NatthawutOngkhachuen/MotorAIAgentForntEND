@@ -64,4 +64,4 @@ jobs:
           fi
 
       - name: Trigger Render deploy
-        run: curl --fail --request POST "$RENDER_DEPLOY_HOOK_URL"
+        run: curl --fail --request POST "$RENDER_DEPLOY_HOOK_URL" 
