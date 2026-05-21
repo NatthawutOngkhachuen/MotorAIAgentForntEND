@@ -118,6 +118,7 @@ export function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoScrollRef = useRef(true);
   const scrollFrameRef = useRef<number | null>(null);
+  const followUpScrollFrameRef = useRef<number | null>(null);
   const lastHistoryScrollSessionRef = useRef<string | undefined>(undefined);
   const accessToken = getStoredAccessToken();
   const hasToken = Boolean(accessToken);
@@ -178,7 +179,7 @@ export function ChatPage() {
       const responseStartedAt = performance.now();
       let sessionId = activeSessionId;
 
-      if (!sessionId && recommendationMode !== "graph-rag") {
+      if (!sessionId && recommendationMode === "user-based") {
         sessionId = await chatService.startRecommendationChat(recommendationMode, {
           onSession: (nextSessionId) => {
             sessionId = nextSessionId;
@@ -187,7 +188,7 @@ export function ChatPage() {
         });
       }
 
-      if (!sessionId && recommendationMode !== "graph-rag") {
+      if (!sessionId && recommendationMode === "user-based") {
         throw new Error("Recommendation session was not created by the streaming API.");
       }
 
@@ -283,16 +284,33 @@ export function ChatPage() {
     setMessage("");
   }, []);
   const messages = useMemo(() => (activeSessionId ? historyQuery.data ?? [] : []), [activeSessionId, historyQuery.data]);
+  const historyMessagesForDisplay = useMemo(() => {
+    if (!localWelcomeMessage) {
+      return messages;
+    }
+
+    if (transientMessages.length > 0) {
+      return [];
+    }
+
+    const firstUserMessageIndex = messages.findIndex((item) => item.role === "user");
+    if (firstUserMessageIndex >= 0) {
+      return messages.slice(firstUserMessageIndex);
+    }
+
+    return [];
+  }, [localWelcomeMessage, messages, transientMessages.length]);
   const displayedMessages = useMemo(() => {
-    const visibleMessages = [...messages, ...transientMessages].filter((item) => item.id !== WELCOME_MESSAGE_ID);
+    const visibleMessages = [...historyMessagesForDisplay, ...transientMessages].filter((item) => item.id !== WELCOME_MESSAGE_ID);
     return withAssistantResponseTimes(localWelcomeMessage ? [localWelcomeMessage, ...visibleMessages] : visibleMessages);
-  }, [localWelcomeMessage, messages, transientMessages]);
+  }, [historyMessagesForDisplay, localWelcomeMessage, transientMessages]);
   const messageScrollKey = useMemo(
     () => displayedMessages.map((item) => `${item.id}:${item.content.length}`).join("|"),
     [displayedMessages],
   );
   const activeSession = sessionsQuery.data?.find((session) => session.id === activeSessionId);
   const chatTitle = activeSession ? getSessionLabel(activeSession) : "New Chat";
+  const showHistoryLoading = historyQuery.isLoading && displayedMessages.length === 0;
   const loginRequired =
     !hasToken || isUnauthorizedError(sessionsQuery.error) || isUnauthorizedError(historyQuery.error) || isUnauthorizedError(sendMutation.error);
 
@@ -302,10 +320,12 @@ export function ChatPage() {
   }, [currentUserIdentity, hasToken, resetChatSurface]);
 
   useEffect(() => {
-    const hasPersistedMessages = (historyQuery.data?.length ?? 0) > 0;
+    const hasPersistedConversation =
+      (historyQuery.data ?? []).some((item) => item.role === "user") &&
+      (historyQuery.data ?? []).some((item) => item.role === "assistant");
     if (
       transientSince &&
-      hasPersistedMessages &&
+      hasPersistedConversation &&
       historyQuery.dataUpdatedAt > transientSince &&
       !historyQuery.isFetching &&
       !sendMutation.isPending &&
@@ -315,15 +335,34 @@ export function ChatPage() {
       setTransientSince(null);
       setStreamHasToken(false);
     }
-  }, [historyQuery.data?.length, historyQuery.dataUpdatedAt, historyQuery.isFetching, sendMutation.isPending, startMutation.isPending, transientSince]);
+  }, [historyQuery.data, historyQuery.dataUpdatedAt, historyQuery.isFetching, sendMutation.isPending, startMutation.isPending, transientSince]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (scrollFrameRef.current !== null) {
       window.cancelAnimationFrame(scrollFrameRef.current);
     }
 
+    const scrollContainerToBottom = (nextBehavior: ScrollBehavior) => {
+      const container = messagesContainerRef.current;
+      if (!container) {
+        return;
+      }
+
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: nextBehavior,
+      });
+    };
+
     scrollFrameRef.current = window.requestAnimationFrame(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
+      scrollContainerToBottom(behavior);
+      if (followUpScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(followUpScrollFrameRef.current);
+      }
+      followUpScrollFrameRef.current = window.requestAnimationFrame(() => {
+        scrollContainerToBottom("auto");
+        followUpScrollFrameRef.current = null;
+      });
       shouldAutoScrollRef.current = true;
       setShowScrollToLatest(false);
       scrollFrameRef.current = null;
@@ -334,6 +373,9 @@ export function ChatPage() {
     return () => {
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+      if (followUpScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(followUpScrollFrameRef.current);
       }
     };
   }, []);
@@ -347,14 +389,18 @@ export function ChatPage() {
   useEffect(() => {
     const shouldInstantScrollHistory =
       Boolean(activeSessionId) &&
+      !sendMutation.isPending &&
+      !startMutation.isPending &&
       !historyQuery.isFetching &&
       lastHistoryScrollSessionRef.current !== activeSessionId &&
       (historyQuery.dataUpdatedAt > 0 || displayedMessages.length === 0);
 
     if (shouldInstantScrollHistory) {
       lastHistoryScrollSessionRef.current = activeSessionId;
-      shouldAutoScrollRef.current = true;
-      scrollToBottom("auto");
+      if (shouldAutoScrollRef.current || isNearBottom(messagesContainerRef.current)) {
+        shouldAutoScrollRef.current = true;
+        scrollToBottom("auto");
+      }
       return;
     }
 
@@ -575,11 +621,16 @@ export function ChatPage() {
 
               <div className="relative min-h-0 flex-1">
                 <div className="pointer-events-none absolute inset-0 ai-grid-glow opacity-35" />
-                <div ref={messagesContainerRef} onScroll={handleMessagesScroll} className="premium-scrollbar relative h-full min-h-0 overflow-y-auto overflow-x-hidden px-5 py-5 pb-20">
+                <div
+                  ref={messagesContainerRef}
+                  onScroll={handleMessagesScroll}
+                  className="premium-scrollbar relative h-full min-h-0 overflow-y-auto overflow-x-hidden px-5 py-5 pb-20"
+                  style={{ overflowAnchor: "none" }}
+                >
                   <div className="flex min-h-full flex-col gap-4">
-                    {historyQuery.isLoading ? <LoadingState /> : null}
+                    {showHistoryLoading ? <LoadingState /> : null}
                     {historyQuery.isError ? <ErrorState message={historyQuery.error.message} onRetry={() => historyQuery.refetch()} /> : null}
-                    {!historyQuery.isLoading && !historyQuery.isError && displayedMessages.length === 0 ? (
+                    {!showHistoryLoading && !historyQuery.isError && displayedMessages.length === 0 ? (
                       <div className="mx-auto flex min-h-[18rem] max-w-xl flex-col items-center justify-center text-center">
                         <div className="mb-4 grid h-14 w-14 place-items-center rounded-[16px] bg-gradient-to-br from-blue-700/22 to-neon-cyan/10 shadow-glow ring-1 ring-neon-cyan/25">
                           <MessageSquareText className="h-6 w-6 text-neon-cyan" />

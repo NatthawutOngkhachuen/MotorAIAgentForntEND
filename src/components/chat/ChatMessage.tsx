@@ -26,6 +26,10 @@ type ChatContentBlock =
       text: string;
     }
   | {
+      type: "list";
+      items: string[];
+    }
+  | {
       type: "table";
       headers: string[];
       rows: string[][];
@@ -51,6 +55,11 @@ function isTableSeparator(line: string) {
   }
 
   return parsePipeCells(line).every((cell) => /^:?-{3,}:?$/.test(cell.replace(/\s/g, "")));
+}
+
+function readBulletText(line: string) {
+  const match = line.trim().match(/^[-*•]\s+(.+)$/);
+  return match?.[1].trim();
 }
 
 function parseAssistantContent(content: string): ChatContentBlock[] {
@@ -85,6 +94,38 @@ function parseAssistantContent(content: string): ChatContentBlock[] {
       }
 
       blocks.push({ type: "table", headers, rows });
+      continue;
+    }
+
+    const bulletText = readBulletText(line);
+    if (bulletText) {
+      flushParagraph();
+      const items: string[] = [];
+
+      while (index < lines.length) {
+        const nextBulletText = readBulletText(lines[index]);
+        if (!nextBulletText) {
+          break;
+        }
+
+        const itemParts = [nextBulletText];
+        index += 1;
+
+        while (
+          index < lines.length &&
+          lines[index].trim() &&
+          !readBulletText(lines[index]) &&
+          !(isPipeTableRow(lines[index]) && lines[index + 1] && isTableSeparator(lines[index + 1])) &&
+          !isTableSeparator(lines[index])
+        ) {
+          itemParts.push(lines[index].trim());
+          index += 1;
+        }
+
+        items.push(itemParts.join(" "));
+      }
+
+      blocks.push({ type: "list", items });
       continue;
     }
 
@@ -175,6 +216,19 @@ function AssistantMessageContent({ content }: { content: string }) {
                 </tbody>
               </table>
             </div>
+          );
+        }
+
+        if (block.type === "list") {
+          return (
+            <ul key={`list-${blockIndex}`} className="space-y-2">
+              {block.items.map((item, itemIndex) => (
+                <li key={`${itemIndex}-${item}`} className="flex gap-2 leading-7">
+                  <span className="mt-3 h-1.5 w-1.5 shrink-0 rounded-full bg-neon-cyan shadow-glow" />
+                  <span className="min-w-0 break-words">{renderInlineMarkdown(item)}</span>
+                </li>
+              ))}
+            </ul>
           );
         }
 

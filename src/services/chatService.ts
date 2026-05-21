@@ -461,7 +461,7 @@ export const chatService = {
   },
 
   async startRecommendationChat(mode: RecommendationMode, handlers: RecommendationStreamHandlers = {}) {
-    if (mode === "graph-rag") {
+    if (mode !== "user-based") {
       return undefined;
     }
 
