@@ -15,6 +15,7 @@ interface GraphCanvasProps {
   nodes: KnowledgeGraphNode[];
   edges: GraphEdgeData[];
   typeColorMap: Map<string, string>;
+  featuredTypeLabels?: Set<string>;
   selectedNodeId?: string;
   onNodeSelect: (nodeId: string) => void;
 }
@@ -126,7 +127,7 @@ function getBounds(positions: Map<string, Point>) {
 }
 
 export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
-  ({ nodes, edges, typeColorMap, selectedNodeId, onNodeSelect }, ref) => {
+  ({ nodes, edges, typeColorMap, featuredTypeLabels, selectedNodeId, onNodeSelect }, ref) => {
     const shellRef = useRef<HTMLDivElement>(null);
     const dragRef = useRef<{ pointerId: number; x: number; y: number } | null>(null);
     const positions = useMemo(() => layoutNodes(nodes, edges), [edges, nodes]);
@@ -338,7 +339,7 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
                     strokeWidth={isFocused ? "2.8" : "1.15"}
                   />
                   {isFocused && label ? (
-                    <text x={midX} y={midY} fill="#0f172a" fontSize="11" fontWeight="800" paintOrder="stroke" stroke="rgba(255,255,255,0.92)" strokeWidth="5" textAnchor="middle">
+                    <text x={midX} y={midY} fill="#0f172a" fontSize="13" fontWeight="900" paintOrder="stroke" stroke="rgba(255,255,255,0.92)" strokeWidth="5" textAnchor="middle">
                       {label}
                     </text>
                   ) : null}
@@ -351,13 +352,15 @@ export const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
             const label = typeLabel(node);
             const position = positions.get(node.id) ?? { x: 0, y: 0 };
             const isConnected = selectedNodeId ? connected.has(node.id) : false;
+            const isFeatured = featuredTypeLabels?.has(label) ?? false;
 
             return (
-              <div key={node.id} style={{ left: position.x, top: position.y }} className="absolute">
+              <div key={node.id} style={{ left: position.x, top: position.y, zIndex: isFeatured ? 4 : 1 }} className="absolute">
                 <GraphNode
                   graphNode={node}
                   typeLabel={label}
                   color={typeColorMap.get(label) ?? EDGE_COLOR}
+                  isFeatured={isFeatured}
                   isSelected={selectedNodeId === node.id}
                   isConnected={isConnected}
                   isDimmed={Boolean(selectedNodeId && !isConnected)}

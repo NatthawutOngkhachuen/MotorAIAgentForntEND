@@ -1,5 +1,6 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { HomeRedirect, RequireAuth } from "@/components/routing/AuthRoute";
 import { AdminDashboardPage } from "@/pages/AdminDashboardPage";
 import { ChatPage } from "@/pages/ChatPage";
 import { EntitiesPage } from "@/pages/EntitiesPage";
@@ -9,11 +10,15 @@ import { RegisterPage } from "@/pages/RegisterPage";
 import { RelationsPage } from "@/pages/RelationsPage";
 
 export const router = createBrowserRouter([
-  { path: "/", element: <Navigate to="/chat" replace /> },
+  { path: "/", element: <HomeRedirect /> },
   { path: "/login", element: <LoginPage /> },
   { path: "/register", element: <RegisterPage /> },
   {
-    element: <AppLayout />,
+    element: (
+      <RequireAuth>
+        <AppLayout />
+      </RequireAuth>
+    ),
     children: [
       { path: "/chat", element: <ChatPage /> },
       { path: "/admin", element: <AdminDashboardPage /> },
@@ -22,5 +27,5 @@ export const router = createBrowserRouter([
       { path: "/relations", element: <RelationsPage /> },
     ],
   },
-  { path: "*", element: <Navigate to="/chat" replace /> },
+  { path: "*", element: <HomeRedirect /> },
 ]);

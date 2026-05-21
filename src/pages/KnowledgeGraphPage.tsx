@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/states/LoadingState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useGraph } from "@/hooks/useGraph";
+import { isVehicleModelType, VEHICLE_MODEL_NODE_COLOR } from "@/lib/graphNodeStyling";
 import type { GraphEdgeData, GraphNodeData, RelationshipDetail } from "@/types/graph";
 
 const NODE_COLORS = ["#0891B2", "#1D4ED8", "#0284C7", "#6D28D9", "#059669", "#7C3AED", "#2563EB", "#475569"];
@@ -82,9 +83,16 @@ export function KnowledgeGraphPage() {
   );
 
   const typeColorMap = useMemo(
-    () => new Map(nodeTypes.map((type, index) => [type, NODE_COLORS[index % NODE_COLORS.length]])),
+    () =>
+      new Map(
+        nodeTypes.map((type, index) => [
+          type,
+          isVehicleModelType(type) ? VEHICLE_MODEL_NODE_COLOR : NODE_COLORS[index % NODE_COLORS.length],
+        ]),
+      ),
     [nodeTypes],
   );
+  const featuredTypeLabels = useMemo(() => new Set(nodeTypes.filter(isVehicleModelType)), [nodeTypes]);
 
   const selectedNode = selectedNodeId ? nodeById.get(selectedNodeId) : undefined;
   const selectedNodeRelationships = useMemo(() => {
@@ -187,6 +195,7 @@ export function KnowledgeGraphPage() {
                 nodes={visibleNodes}
                 edges={visibleEdges.map((edge, index) => ({ ...edge, id: getEdgeId(edge, index) }))}
                 typeColorMap={typeColorMap}
+                featuredTypeLabels={featuredTypeLabels}
                 selectedNodeId={selectedNodeId}
                 onNodeSelect={setSelectedNodeId}
               />
