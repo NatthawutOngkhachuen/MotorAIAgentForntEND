@@ -41,21 +41,9 @@ function formatSessionTime(session: ChatSession) {
   }).format(date);
 }
 
-function getSessionTime(session: ChatSession) {
-  const rawDate = session.updatedAt ?? session.createdAt;
-  if (!rawDate) {
-    return 0;
-  }
-
-  const time = new Date(rawDate).getTime();
-  return Number.isNaN(time) ? 0 : time;
-}
-
-function pickLatestSession(sessions: ChatSession[]) {
-  return [...sessions].sort((a, b) => getSessionTime(b) - getSessionTime(a))[0];
-}
-
 const NEAR_BOTTOM_THRESHOLD = 120;
+const WELCOME_MESSAGE_ID = "local-assistant-welcome";
+const WELCOME_MESSAGE = "สวัสดีครับ อยากให้ช่วยแนะนำมอเตอร์ไซค์แบบไหน บอกงบประมาณ การใช้งาน หรือรุ่นที่สนใจมาได้เลยครับ";
 
 function isNearBottom(container: HTMLDivElement | null) {
   if (!container) {
@@ -64,6 +52,36 @@ function isNearBottom(container: HTMLDivElement | null) {
 
   const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
   return distanceFromBottom < NEAR_BOTTOM_THRESHOLD;
+}
+
+function readMessageTime(message: NormalizedChatMessage) {
+  if (!message.createdAt) {
+    return undefined;
+  }
+
+  const time = new Date(message.createdAt).getTime();
+  return Number.isNaN(time) ? undefined : time;
+}
+
+function withAssistantResponseTimes(messages: NormalizedChatMessage[]) {
+  let lastUserTime: number | undefined;
+
+  return messages.map((message) => {
+    const messageTime = readMessageTime(message);
+    if (message.role === "user") {
+      lastUserTime = messageTime;
+      return message;
+    }
+
+    if (typeof message.responseTimeMs === "number" || lastUserTime === undefined || messageTime === undefined || messageTime < lastUserTime) {
+      return message;
+    }
+
+    return {
+      ...message,
+      responseTimeMs: messageTime - lastUserTime,
+    };
+  });
 }
 
 export function ChatPage() {
@@ -104,7 +122,7 @@ export function ChatPage() {
             const assistantIndex = current.findIndex((item) => item.id === "local-assistant-start-stream");
             if (assistantIndex === -1) {
               return [
-                ...current,
+                ...current.filter((item) => item.id !== WELCOME_MESSAGE_ID),
                 {
                   id: "local-assistant-start-stream",
                   role: "assistant",
@@ -123,6 +141,10 @@ export function ChatPage() {
       setStreamHasToken(false);
     },
     onSuccess: async (sessionId) => {
+      if (sessionId) {
+        setActiveSessionId(sessionId);
+      }
+
       await queryClient.invalidateQueries({ queryKey: sessionsQueryKey });
       if (sessionId) {
         queryClient.removeQueries({ queryKey: ["chat-history", currentUserIdentity, sessionId] });
@@ -132,9 +154,10 @@ export function ChatPage() {
   });
   const sendMutation = useMutation({
     mutationFn: async (nextMessage: string) => {
+      const responseStartedAt = performance.now();
       let sessionId = activeSessionId;
 
-      if (!sessionId) {
+      if (!sessionId && recommendationMode !== "graph-rag") {
         sessionId = await chatService.startRecommendationChat(recommendationMode, {
           onSession: (nextSessionId) => {
             sessionId = nextSessionId;
@@ -143,7 +166,7 @@ export function ChatPage() {
         });
       }
 
-      if (!sessionId) {
+      if (!sessionId && recommendationMode !== "graph-rag") {
         throw new Error("Recommendation session was not created by the streaming API.");
       }
 
@@ -172,7 +195,12 @@ export function ChatPage() {
         },
       });
 
-      return { sessionId };
+      const responseTimeMs = performance.now() - responseStartedAt;
+      setTransientMessages((current) =>
+        current.map((item) => (item.id === "local-assistant-stream" ? { ...item, responseTimeMs } : item)),
+      );
+
+      return { sessionId, responseTimeMs };
     },
     onMutate: (nextMessage) => {
       const now = Date.now();
@@ -188,17 +216,10 @@ export function ChatPage() {
       ]);
     },
     onSuccess: async (response) => {
-      setActiveSessionId(response.sessionId);
-      const sessions = await queryClient.fetchQuery({
-        queryKey: sessionsQueryKey,
-        queryFn: chatService.getChatSessions,
-      });
-      if (!response.sessionId && !activeSessionId) {
-        const latestSession = pickLatestSession(sessions);
-        if (latestSession?.id) {
-          setActiveSessionId(latestSession.id);
-        }
+      if (response.sessionId) {
+        setActiveSessionId(response.sessionId);
       }
+      await queryClient.invalidateQueries({ queryKey: sessionsQueryKey });
       queryClient.invalidateQueries({ queryKey: ["chat-history", currentUserIdentity] });
     },
   });
@@ -215,8 +236,20 @@ export function ChatPage() {
       }
     },
   });
-  const messages = historyQuery.data ?? [];
-  const displayedMessages = useMemo(() => [...messages, ...transientMessages], [messages, transientMessages]);
+  const messages = useMemo(() => historyQuery.data ?? [], [historyQuery.data]);
+  const displayedMessages = useMemo(() => {
+    if (!activeSessionId && messages.length === 0 && transientMessages.length === 0) {
+      return [
+        {
+          id: WELCOME_MESSAGE_ID,
+          role: "assistant",
+          content: WELCOME_MESSAGE,
+        } satisfies NormalizedChatMessage,
+      ];
+    }
+
+    return withAssistantResponseTimes([...messages, ...transientMessages]);
+  }, [activeSessionId, messages, transientMessages]);
   const messageScrollKey = useMemo(
     () => displayedMessages.map((item) => `${item.id}:${item.content.length}`).join("|"),
     [displayedMessages],
@@ -237,18 +270,20 @@ export function ChatPage() {
   }, [currentUserIdentity, hasToken]);
 
   useEffect(() => {
-    if (activeSessionId && sessionsQuery.data && !sessionsQuery.data.some((session) => session.id === activeSessionId)) {
-      setActiveSessionId(sessionsQuery.data[0]?.id);
-    }
-  }, [activeSessionId, sessionsQuery.data]);
-
-  useEffect(() => {
-    if (transientSince && historyQuery.dataUpdatedAt > transientSince && !historyQuery.isFetching && !sendMutation.isPending && !startMutation.isPending) {
+    const hasPersistedMessages = (historyQuery.data?.length ?? 0) > 0;
+    if (
+      transientSince &&
+      hasPersistedMessages &&
+      historyQuery.dataUpdatedAt > transientSince &&
+      !historyQuery.isFetching &&
+      !sendMutation.isPending &&
+      !startMutation.isPending
+    ) {
       setTransientMessages([]);
       setTransientSince(null);
       setStreamHasToken(false);
     }
-  }, [historyQuery.dataUpdatedAt, historyQuery.isFetching, sendMutation.isPending, startMutation.isPending, transientSince]);
+  }, [historyQuery.data?.length, historyQuery.dataUpdatedAt, historyQuery.isFetching, sendMutation.isPending, startMutation.isPending, transientSince]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (scrollFrameRef.current !== null) {
@@ -330,9 +365,6 @@ export function ChatPage() {
     sendMutation.reset();
     startMutation.reset();
     setMessage("");
-    if (hasToken) {
-      startMutation.mutate();
-    }
   }
 
   function selectSession(sessionId: string) {
@@ -356,16 +388,8 @@ export function ChatPage() {
     }
 
     setRecommendationMode(mode);
-    setActiveSessionId(undefined);
-    setTransientMessages([]);
-    setTransientSince(null);
-    setStreamHasToken(false);
-    setShowScrollToLatest(false);
-    shouldAutoScrollRef.current = true;
-    lastHistoryScrollSessionRef.current = undefined;
     sendMutation.reset();
     startMutation.reset();
-    setMessage("");
   }
 
   function deleteSession(event: MouseEvent<HTMLButtonElement>, sessionId: string) {
@@ -414,17 +438,15 @@ export function ChatPage() {
   return (
     <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex min-h-[calc(100vh-3rem)] flex-col lg:h-[calc(100vh-3rem)] lg:overflow-hidden">
       <PageHeader
-        eyebrow="AI Control"
         title="Chat"
-        description="Ask the sales assistant questions backed by the recommendation API."
       />
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
         <aside className="carbon-panel moto-cut-card relative flex max-h-[calc(100vh-11rem)] min-h-[18rem] flex-col p-4 lg:max-h-none lg:min-h-0">
           <div className="ai-light-sheen opacity-35" />
           <div className="relative mb-4 flex items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-neon-cyan">Chat History</p>
-              <p className="mt-1 text-xs text-muted-foreground">Your saved sessions</p>
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-neon-cyan">Chat History</p>
+              <p className="mt-1 text-sm text-muted-foreground">Your saved sessions</p>
             </div>
             <Button type="button" onClick={startNewChat} className="shrink-0 shadow-glow">
               <Plus className="h-4 w-4" />
@@ -499,14 +521,15 @@ export function ChatPage() {
               <div className="relative flex items-center justify-between gap-3 px-5 py-4">
                 <div className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-neon-cyan/45 via-white/10 to-transparent" />
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-neon-cyan">MotoAI Assistant</p>
-                  <h2 className="mt-1 truncate text-xl font-black uppercase tracking-wide text-foreground">{chatTitle}</h2>
+                  <p className="text-sm font-black uppercase tracking-[0.18em] text-neon-cyan">MotoAI Assistant</p>
+                  <h2 className="mt-1 truncate text-2xl font-black uppercase tracking-wide text-foreground">{chatTitle}</h2>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <div className="grid grid-cols-2 rounded-md bg-carbon-950/55 p-1 ring-1 ring-white/10">
+                  <div className="grid grid-cols-3 rounded-md bg-carbon-950/55 p-1 ring-1 ring-white/10">
                     {[
                       { label: "User", value: "user-based" },
                       { label: "Cluster", value: "cluster-based" },
+                      { label: "GraphRAG", value: "graph-rag" },
                     ].map((mode) => (
                       <button
                         key={mode.value}
@@ -584,8 +607,14 @@ export function ChatPage() {
                 ref={inputRef}
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    event.currentTarget.form?.requestSubmit();
+                  }
+                }}
                 placeholder="Type a sales or recommendation query..."
-                className="min-h-20 flex-1 resize-none border-0 bg-carbon-950/55 shadow-inner ring-1 ring-white/10 focus:ring-neon-cyan/35"
+                className="min-h-20 flex-1 resize-none border-0 bg-carbon-950/55 text-base leading-7 shadow-inner ring-1 ring-white/10 focus:ring-neon-cyan/35"
               />
               <Button type="submit" size="lg" disabled={sendMutation.isPending || startMutation.isPending || !message.trim()} className="sm:self-end">
                 <Send className="h-4 w-4" />

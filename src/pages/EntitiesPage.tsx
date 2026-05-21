@@ -30,7 +30,7 @@ export function EntitiesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const query = useEntitiesFromGraph();
-  const entities = query.data ?? [];
+  const entities = useMemo(() => query.data ?? [], [query.data]);
   const nodeTypes = useMemo(() => Array.from(new Set(entities.map(getNodeType))).sort(), [entities]);
   const visibleEntities = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -45,9 +45,7 @@ export function EntitiesPage() {
   return (
     <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <PageHeader
-        eyebrow="Knowledge Base"
         title="Entities"
-        description="Browse entities extracted from your real motorcycle sales corpus and knowledge graph API."
       />
       {query.isLoading ? <LoadingState /> : null}
       {query.isError ? <ErrorState message={query.error.message} onRetry={() => query.refetch()} /> : null}

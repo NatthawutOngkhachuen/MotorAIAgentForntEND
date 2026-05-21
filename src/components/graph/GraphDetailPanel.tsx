@@ -49,7 +49,7 @@ function RelationshipCard({ relationship }: { relationship: RelationshipDetail }
 export function GraphDetailPanel({ selectedNode, relationships, onClose }: GraphDetailPanelProps) {
   if (!selectedNode) {
     return (
-      <aside className="carbon-panel hidden min-h-[620px] rounded-[18px] p-6 text-center xl:flex xl:flex-col xl:items-center xl:justify-center">
+      <aside className="carbon-panel hidden h-full min-h-[420px] rounded-[18px] p-6 text-center xl:flex xl:flex-col xl:items-center xl:justify-center">
         <Network className="mb-3 h-9 w-9 text-neon-cyan" />
         <h2 className="text-lg font-bold">Select a graph node</h2>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">Click a glowing node to inspect its API details and live relationships.</p>
@@ -63,7 +63,7 @@ export function GraphDetailPanel({ selectedNode, relationships, onClose }: Graph
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 28 }}
       transition={{ duration: 0.22 }}
-      className="graph-detail-panel moto-cut-card min-h-[620px] p-4"
+      className="graph-detail-panel h-full min-h-[420px] overflow-y-auto rounded-[18px] p-4"
     >
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">

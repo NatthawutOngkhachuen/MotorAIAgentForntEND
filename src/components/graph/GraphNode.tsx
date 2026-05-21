@@ -1,43 +1,46 @@
 import type { CSSProperties } from "react";
-import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import type { GraphNodeData as KnowledgeGraphNode } from "@/types/graph";
 
-export type FlowGraphNodeData = {
+interface GraphNodeProps {
   graphNode: KnowledgeGraphNode;
   typeLabel: string;
   color: string;
+  isSelected: boolean;
   isConnected: boolean;
   isDimmed: boolean;
-};
+  onSelect: () => void;
+}
 
-export type GraphFlowNode = Node<FlowGraphNodeData, "graphNode">;
-
-export function GraphNode({ data, selected }: NodeProps<GraphFlowNode>) {
+export function GraphNode({ graphNode, typeLabel, color, isSelected, isConnected, isDimmed, onSelect }: GraphNodeProps) {
   return (
-    <div
+    <button
+      type="button"
       className={cn(
-        "graph-neon-node relative flex h-32 w-32 items-center justify-center rounded-full border text-center backdrop-blur-xl transition duration-300",
-        selected && "graph-neon-node-selected",
-        data.isConnected && !selected && "graph-neon-node-connected",
-        data.isDimmed && "opacity-35 saturate-50",
+        "graph-neon-node relative flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 text-center transition duration-200",
+        isSelected && "graph-neon-node-selected",
+        isConnected && !isSelected && "graph-neon-node-connected",
+        isDimmed && "opacity-35 saturate-50",
       )}
       style={
         {
-          "--node-color": data.color,
-          borderColor: data.color,
-          boxShadow: `0 0 20px ${data.color}5c, inset 0 0 22px ${data.color}16`,
+          "--node-color": color,
+          borderColor: color,
+          boxShadow: `0 10px 24px ${color}38, 0 0 0 4px ${color}18, inset 0 0 22px ${color}18`,
         } as CSSProperties
       }
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onSelect();
+      }}
     >
-      <Handle className="!h-2 !w-2 !border-0 !bg-transparent" type="target" position={Position.Top} />
-      <div className="absolute inset-3 rounded-full border border-border bg-carbon-950/80" />
-      <div className="pointer-events-none relative z-10 max-w-[6.5rem] px-2">
-        <p className="line-clamp-2 text-sm font-black leading-tight text-foreground drop-shadow">{data.graphNode.label}</p>
-        <p className="mt-2 truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{data.typeLabel}</p>
+      <div className="absolute inset-2 rounded-full border bg-white/88" style={{ borderColor: `${color}66` }} />
+      <div className="pointer-events-none relative z-10 max-w-[4.5rem] px-1.5">
+        <p className="line-clamp-2 text-[10px] font-black leading-tight text-slate-950">{graphNode.label}</p>
+        <p className="mt-1 truncate text-[8px] font-bold uppercase tracking-wider text-slate-600">{typeLabel}</p>
       </div>
-      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.18),transparent_58%)] opacity-30" />
-      <Handle className="!h-2 !w-2 !border-0 !bg-transparent" type="source" position={Position.Bottom} />
-    </div>
+      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.42),transparent_58%)] opacity-75" />
+    </button>
   );
 }

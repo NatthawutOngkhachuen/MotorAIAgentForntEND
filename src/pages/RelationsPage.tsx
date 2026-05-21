@@ -38,7 +38,7 @@ export function RelationsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const query = useRelationsFromGraph();
   const graph = query.data;
-  const relations = graph?.edges ?? [];
+  const relations = useMemo(() => graph?.edges ?? [], [graph?.edges]);
   const nodeById = useMemo(() => new Map((graph?.nodes ?? []).map((node) => [node.id, node])), [graph?.nodes]);
   const visibleRelations = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -58,9 +58,7 @@ export function RelationsPage() {
   return (
     <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <PageHeader
-        eyebrow="Knowledge Base"
         title="Relations"
-        description="Inspect source-target relationships returned by your graph service."
       />
       {query.isLoading ? <LoadingState /> : null}
       {query.isError ? <ErrorState message={query.error.message} onRetry={() => query.refetch()} /> : null}

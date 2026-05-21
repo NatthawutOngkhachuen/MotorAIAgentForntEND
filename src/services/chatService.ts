@@ -15,9 +15,10 @@ export interface NormalizedChatMessage {
   role: "user" | "assistant";
   content: string;
   createdAt?: string;
+  responseTimeMs?: number;
 }
 
-export type RecommendationMode = "user-based" | "cluster-based";
+export type RecommendationMode = "user-based" | "cluster-based" | "graph-rag";
 
 export interface RecommendationStreamHandlers {
   onSession?: (sessionId: string) => void;
@@ -304,6 +305,10 @@ function buildRecommendationUrl(mode: RecommendationMode, action: "start" | "cha
     throw new ApiError("VITE_API_BASE_URL is not configured.", 0);
   }
 
+  if (mode === "graph-rag") {
+    return `${API_BASE_URL}/api/v1/chat`;
+  }
+
   return `${API_BASE_URL}/api/v1/recommendation/${mode}/${action}`;
 }
 
@@ -326,8 +331,9 @@ function buildStreamHeaders(hasBody: boolean) {
 
 function dispatchSseEvent(eventType: string, data: string, handlers: RecommendationStreamHandlers) {
   const payload = parseSseData(data);
+  const effectiveEventType = eventType === "message" ? readNestedString(payload, ["type", "event"]) ?? eventType : eventType;
 
-  switch (eventType) {
+  switch (effectiveEventType) {
     case "session": {
       const sessionId = extractSessionId(payload);
       if (sessionId) {
@@ -455,6 +461,10 @@ export const chatService = {
   },
 
   async startRecommendationChat(mode: RecommendationMode, handlers: RecommendationStreamHandlers = {}) {
+    if (mode === "graph-rag") {
+      return undefined;
+    }
+
     let sessionId: string | undefined;
     await streamRecommendationRequest(buildRecommendationUrl(mode, "start"), undefined, {
       ...handlers,
@@ -466,7 +476,7 @@ export const chatService = {
     return sessionId;
   },
 
-  async streamRecommendationChatMessage(mode: RecommendationMode, question: string, sessionId: string, handlers: RecommendationStreamHandlers = {}) {
+  async streamRecommendationChatMessage(mode: RecommendationMode, question: string, sessionId: string | undefined, handlers: RecommendationStreamHandlers = {}) {
     await streamRecommendationRequest(
       buildRecommendationUrl(mode, "chat"),
       JSON.stringify({

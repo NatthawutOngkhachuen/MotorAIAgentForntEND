@@ -19,7 +19,7 @@ export function GraphFilterPanel({
   onReset,
 }: GraphFilterPanelProps) {
   return (
-    <div className="carbon-panel flex flex-wrap items-center gap-2 rounded-[18px] p-3">
+    <div className="carbon-panel flex flex-wrap items-center gap-1.5 rounded-[18px] px-3 py-2">
       <span className="mr-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">Node Types</span>
       {nodeTypes.map((type) => {
         const selected = selectedTypes.has(type);
@@ -33,7 +33,7 @@ export function GraphFilterPanel({
             whileTap={{ scale: 0.97 }}
             onClick={() => onTypeToggle(type)}
             className={cn(
-              "rounded-full border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition",
+              "rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-wide transition",
               selected ? "text-foreground" : "border-border bg-graphite-800/40 text-muted-foreground opacity-70",
             )}
             style={
@@ -50,8 +50,8 @@ export function GraphFilterPanel({
           </motion.button>
         );
       })}
-      <Button className="ml-auto h-8 px-3 text-xs" variant="secondary" onClick={onReset}>
-        <RotateCcw className="h-3.5 w-3.5" />
+      <Button className="ml-auto h-7 px-2.5 text-xs" variant="secondary" onClick={onReset}>
+        <RotateCcw className="h-3 w-3" />
         Reset Filters
       </Button>
     </div>

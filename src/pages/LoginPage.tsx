@@ -6,7 +6,7 @@ import { Bot, LogIn } from "lucide-react";
 import { CyberBackground } from "@/components/layout/CyberBackground";
 import { ErrorState } from "@/components/states/ErrorState";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { queryClient } from "@/lib/queryClient";
 import { persistAuthSession } from "@/services/authStorage";
@@ -39,14 +39,12 @@ export function LoginPage() {
             <Bot className="h-7 w-7 text-neon-cyan" />
           </div>
           <div>
-            <p className="text-2xl font-black uppercase neon-text">MotoAI</p>
-            <p className="text-sm text-muted-foreground">Premium dealer intelligence</p>
+            <p className="text-2xl font-semibold uppercase neon-text">MOTOAI AGENT</p>
           </div>
         </div>
         <Card>
           <CardHeader>
             <CardTitle>Login</CardTitle>
-            <CardDescription>Connect to your sales assistant workspace.</CardDescription>
           </CardHeader>
           <CardContent>
             {mutation.isError ? (

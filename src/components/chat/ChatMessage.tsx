@@ -1,10 +1,23 @@
 import { memo } from "react";
-import { AlertTriangle, Bot, User } from "lucide-react";
+import { AlertTriangle, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NormalizedChatMessage } from "@/services/chatService";
 
 interface ChatMessageProps {
   message: NormalizedChatMessage;
+}
+
+function formatResponseTime(durationMs: number) {
+  const totalSeconds = Math.max(0, durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds - minutes * 60;
+  const secondsText = seconds >= 10 || minutes > 0 ? seconds.toFixed(0) : seconds.toFixed(1);
+
+  if (minutes > 0) {
+    return `ตอบใน ${minutes} นาที ${secondsText} วินาที`;
+  }
+
+  return `ตอบใน ${secondsText} วินาที`;
 }
 
 export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps) {
@@ -22,16 +35,16 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
       >
         {!isUser ? <span className="absolute inset-y-3 left-0 w-1 bg-gradient-to-b from-neon-cyan to-transparent" /> : null}
         {isUser ? <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-white/45 to-transparent" /> : null}
-        <div
-          className={cn(
-            "mb-2 flex items-center gap-2 text-[0.68rem] font-black uppercase tracking-[0.18em]",
-            isUser ? "justify-end text-white" : "text-neon-cyan",
-          )}
-        >
-          {isUser ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
-          {isUser ? "USER" : "ASSISTANT"}
-        </div>
-        <p className={cn("whitespace-pre-wrap break-words text-sm leading-6", isUser ? "text-white" : "text-foreground")}>{message.content}</p>
+        {!isUser ? (
+          <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-neon-cyan">
+            <Bot className="h-4 w-4" />
+            ASSISTANT
+          </div>
+        ) : null}
+        <p className={cn("whitespace-pre-wrap break-words text-base leading-7", isUser ? "text-white" : "text-foreground")}>{message.content}</p>
+        {!isUser && typeof message.responseTimeMs === "number" ? (
+          <p className="mt-3 text-xs font-medium text-muted-foreground">{formatResponseTime(message.responseTimeMs)}</p>
+        ) : null}
       </article>
     </div>
   );
@@ -63,11 +76,11 @@ export function TypingIndicator() {
     <div className="flex justify-start">
       <div className="relative max-w-[88%] overflow-hidden rounded-[8px_18px_18px_18px] bg-graphite-900/90 px-4 py-3 shadow-glow ring-1 ring-neon-cyan/25 backdrop-blur-xl sm:max-w-[75%]">
         <span className="absolute inset-y-3 left-0 w-1 bg-gradient-to-b from-neon-cyan to-transparent" />
-        <div className="mb-2 flex items-center gap-2 text-[0.68rem] font-black uppercase tracking-[0.18em] text-neon-cyan">
-          <Bot className="h-3.5 w-3.5" />
+        <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-neon-cyan">
+          <Bot className="h-4 w-4" />
           ASSISTANT
         </div>
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex items-center gap-3 text-base text-muted-foreground">
           <span>MotoAI is thinking...</span>
           <span className="flex gap-1">
             {[0, 1, 2].map((dot) => (

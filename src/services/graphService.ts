@@ -50,8 +50,8 @@ function propertiesFrom(record: RecordPayload, consumedFields: string[]) {
 function normalizeNode(value: unknown, index: number): GraphNodeData {
   const record = isRecord(value) ? value : {};
   const idFields = ["id", "_id", "entityId", "nodeId", "key"];
-  const labelFields = ["label", "name", "title", "value", "text"];
-  const typeFields = ["type", "entityType", "category", "kind"];
+  const labelFields = ["name", "title", "value", "text", "label"];
+  const typeFields = ["type", "entityType", "category", "kind", "label"];
   const descriptionFields = ["description", "summary", "detail", "details"];
   const id = stringFromFields(record, idFields) ?? `node-${index}`;
   const label = stringFromFields(record, labelFields) ?? id;
@@ -80,8 +80,8 @@ function normalizeEdge(value: unknown, index: number): GraphEdgeData | null {
   const idFields = ["id", "_id", "relationId", "edgeId"];
   const sourceFields = ["source", "sourceId", "from", "fromId", "startNode", "startNodeId"];
   const targetFields = ["target", "targetId", "to", "toId", "endNode", "endNodeId"];
-  const labelFields = ["relation", "relationType", "type", "label", "name"];
-  const typeFields = ["relationType", "type", "relation"];
+  const labelFields = ["rel", "relation", "relationType", "type", "label", "name"];
+  const typeFields = ["rel", "relationType", "type", "relation"];
   const source = stringFromFields(record, sourceFields);
   const target = stringFromFields(record, targetFields);
 

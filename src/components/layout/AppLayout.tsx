@@ -86,13 +86,12 @@ export function AppLayout() {
           <div className="relative mb-8 px-2 pt-1">
             <div className="mb-3 h-px w-20 bg-gradient-to-r from-blue-600 via-neon-cyan to-transparent" />
             <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-blue-700/30 to-neon-cyan/15 shadow-glow ring-1 ring-neon-cyan/35">
-              <Bot className="h-6 w-6 text-neon-cyan" />
-            </div>
-            <div>
-              <p className="moto-heading text-lg">MotoAI</p>
-              <p className="text-[0.68rem] font-bold uppercase tracking-[0.22em] text-muted-foreground">AI Control Center</p>
-            </div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-blue-700/30 to-neon-cyan/15 shadow-glow ring-1 ring-neon-cyan/35">
+                <Bot className="h-6 w-6 text-neon-cyan" />
+              </div>
+              <div>
+                <p className="moto-heading text-xl">MOTOAI AGENT</p>
+              </div>
             </div>
           </div>
           <nav className="relative space-y-1.5">
@@ -102,7 +101,7 @@ export function AppLayout() {
                 to={item.to}
                 className={({ isActive }) =>
                   cn(
-                    "group flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-muted-foreground transition duration-200",
+                    "group flex items-center gap-3 px-3 py-3 text-base font-semibold text-muted-foreground transition duration-200",
                     "rounded-[14px] hover:bg-graphite-800/50 hover:text-foreground",
                     isActive &&
                       "active-nav-rail bg-gradient-to-r from-blue-700/20 via-neon-cyan/10 to-transparent text-foreground shadow-glow",
@@ -111,9 +110,9 @@ export function AppLayout() {
               >
                 {({ isActive }) => (
                   <>
-                    <item.icon className={cn("h-4 w-4 transition", isActive ? "text-neon-cyan" : "text-neon-steel group-hover:text-neon-cyan")} />
+                    <item.icon className={cn("h-5 w-5 transition", isActive ? "text-neon-cyan" : "text-neon-steel group-hover:text-neon-cyan")} />
                     <span className="flex-1">{item.label}</span>
-                    <ChevronRight className={cn("h-3.5 w-3.5 transition", isActive ? "translate-x-0 text-neon-cyan opacity-100" : "-translate-x-1 text-muted-foreground opacity-0 group-hover:translate-x-0 group-hover:opacity-70")} />
+                    <ChevronRight className={cn("h-4 w-4 transition", isActive ? "translate-x-0 text-neon-cyan opacity-100" : "-translate-x-1 text-muted-foreground opacity-0 group-hover:translate-x-0 group-hover:opacity-70")} />
                   </>
                 )}
               </NavLink>
@@ -128,9 +127,9 @@ export function AppLayout() {
       <div className="lg:pl-72">
         <header className="sticky top-0 z-10 bg-carbon-950/90 px-4 py-3 shadow-showroom backdrop-blur-xl lg:hidden">
           <div className="flex items-center justify-between">
-            <div className="moto-heading flex items-center gap-2 text-sm">
+            <div className="moto-heading flex items-center gap-2 text-base">
               <Bot className="h-5 w-5 text-neon-cyan" />
-              MotoAI
+              MOTOAI AGENT
             </div>
           </div>
           <nav className="premium-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -140,7 +139,7 @@ export function AppLayout() {
                 to={item.to}
                 className={({ isActive }) =>
                   cn(
-                    "inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-xs font-bold text-muted-foreground",
+                    "inline-flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm font-bold text-muted-foreground",
                     isActive && "bg-neon-cyan/10 text-foreground shadow-glow ring-1 ring-neon-cyan/25",
                   )
                 }

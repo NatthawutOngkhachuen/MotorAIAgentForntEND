@@ -6,7 +6,7 @@ import { Bot, UserPlus } from "lucide-react";
 import { CyberBackground } from "@/components/layout/CyberBackground";
 import { ErrorState } from "@/components/states/ErrorState";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { queryClient } from "@/lib/queryClient";
 import { persistAuthSession } from "@/services/authStorage";
@@ -82,14 +82,12 @@ export function RegisterPage() {
             <Bot className="h-7 w-7 text-neon-cyan" />
           </div>
           <div>
-            <p className="text-2xl font-black uppercase">MotoAI</p>
-            <p className="text-sm text-muted-foreground">Create dealer workspace access</p>
+            <p className="text-2xl font-semibold uppercase">MOTOAI AGENT</p>
           </div>
         </div>
         <Card>
           <CardHeader>
             <CardTitle>Register</CardTitle>
-            <CardDescription>Create a workspace user for the real API backend.</CardDescription>
           </CardHeader>
           <CardContent>
             {validationError ? (
