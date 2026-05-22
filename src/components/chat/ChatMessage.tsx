@@ -5,6 +5,7 @@ import type { NormalizedChatMessage } from "@/services/chatService";
 
 interface ChatMessageProps {
   message: NormalizedChatMessage;
+  isStreaming?: boolean;
 }
 
 function formatResponseTime(durationMs: number) {
@@ -174,10 +175,14 @@ function renderInlineMarkdown(text: string): ReactNode[] {
   return nodes.length > 0 ? nodes : [text];
 }
 
-function AssistantMessageContent({ content }: { content: string }) {
+function StreamingCursor() {
+  return <span aria-hidden="true" className="ml-1 inline-block h-5 w-2 animate-pulse rounded-sm bg-neon-cyan align-[-0.2em] shadow-glow" />;
+}
+
+function AssistantMessageContent({ content, isStreaming = false }: { content: string; isStreaming?: boolean }) {
   const blocks = parseAssistantContent(content);
 
-  if (blocks.length === 0) {
+  if (blocks.length === 0 && !isStreaming) {
     return null;
   }
 
@@ -238,11 +243,12 @@ function AssistantMessageContent({ content }: { content: string }) {
           </p>
         );
       })}
+      {isStreaming ? <StreamingCursor /> : null}
     </div>
   );
 }
 
-export const ChatMessage = memo(function ChatMessage({ message }: ChatMessageProps) {
+export const ChatMessage = memo(function ChatMessage({ message, isStreaming = false }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
@@ -266,7 +272,7 @@ export const ChatMessage = memo(function ChatMessage({ message }: ChatMessagePro
         {isUser ? (
           <p className="whitespace-pre-wrap break-words text-base leading-7 text-white">{message.content}</p>
         ) : (
-          <AssistantMessageContent content={message.content} />
+          <AssistantMessageContent content={message.content} isStreaming={isStreaming} />
         )}
         {!isUser && typeof message.responseTimeMs === "number" ? (
           <p className="mt-3 text-xs font-medium text-muted-foreground">{formatResponseTime(message.responseTimeMs)}</p>

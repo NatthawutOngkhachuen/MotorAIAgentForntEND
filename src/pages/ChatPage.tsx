@@ -54,6 +54,49 @@ const RECOMMENDATION_MODES: Array<{ label: string; value: RecommendationMode }> 
   { label: "Cluster", value: "cluster-based" },
   { label: "GraphRAG", value: "graph-rag" },
 ];
+const SESSION_MODE_STORAGE_PREFIX = "motoai_chat_session_modes";
+
+function sessionModeStorageKey(identity: string) {
+  return `${SESSION_MODE_STORAGE_PREFIX}:${identity}`;
+}
+
+function readSessionModeMap(identity: string) {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  const raw = localStorage.getItem(sessionModeStorageKey(identity));
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, RecommendationMode] =>
+        entry[1] === "user-based" || entry[1] === "cluster-based" || entry[1] === "graph-rag",
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeSessionModeMap(identity: string, modeMap: Record<string, RecommendationMode>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.setItem(sessionModeStorageKey(identity), JSON.stringify(modeMap));
+}
+
+function readSessionMode(session: ChatSession | undefined, modeMap: Record<string, RecommendationMode>) {
+  if (!session) {
+    return undefined;
+  }
+
+  return session.recommendationMode ?? modeMap[session.id];
+}
 
 function isNearBottom(container: HTMLDivElement | null) {
   if (!container) {
@@ -94,6 +137,34 @@ function withAssistantResponseTimes(messages: NormalizedChatMessage[]) {
   });
 }
 
+function normalizeChatContent(content: string) {
+  return content.replace(/\s+/g, " ").trim();
+}
+
+function historyIncludesMessage(historyMessages: NormalizedChatMessage[], transientMessage: NormalizedChatMessage) {
+  const transientContent = normalizeChatContent(transientMessage.content);
+  if (!transientContent) {
+    return true;
+  }
+
+  return historyMessages.some((message) => {
+    if (message.role !== transientMessage.role) {
+      return false;
+    }
+
+    const historyContent = normalizeChatContent(message.content);
+    return historyContent === transientContent || historyContent.includes(transientContent);
+  });
+}
+
+function areTransientMessagesPersisted(historyMessages: NormalizedChatMessage[], transientMessages: NormalizedChatMessage[]) {
+  if (transientMessages.length === 0) {
+    return false;
+  }
+
+  return transientMessages.every((message) => historyIncludesMessage(historyMessages, message));
+}
+
 function createWelcomeMessage(mode: RecommendationMode): NormalizedChatMessage {
   return {
     id: WELCOME_MESSAGE_ID,
@@ -123,6 +194,9 @@ export function ChatPage() {
   const accessToken = getStoredAccessToken();
   const hasToken = Boolean(accessToken);
   const currentUserIdentity = getStoredAuthIdentity();
+  const [sessionModeById, setSessionModeById] = useState<Record<string, RecommendationMode>>(() =>
+    readSessionModeMap(currentUserIdentity),
+  );
   const sessionsQueryKey = useMemo(() => ["chat-sessions", currentUserIdentity] as const, [currentUserIdentity]);
   const sessionsQuery = useApiQuery({
     queryKey: sessionsQueryKey,
@@ -134,10 +208,27 @@ export function ChatPage() {
     queryFn: () => chatService.getChatHistory(activeSessionId!),
     enabled: hasToken && Boolean(activeSessionId),
   });
+  const rememberSessionMode = useCallback(
+    (sessionId: string, mode: RecommendationMode) => {
+      setSessionModeById((current) => {
+        if (current[sessionId] === mode) {
+          return current;
+        }
+
+        const next = { ...current, [sessionId]: mode };
+        writeSessionModeMap(currentUserIdentity, next);
+        return next;
+      });
+    },
+    [currentUserIdentity],
+  );
   const startMutation = useMutation({
     mutationFn: () =>
       chatService.startRecommendationChat(recommendationMode, {
-        onSession: (sessionId) => setActiveSessionId(sessionId),
+        onSession: (sessionId) => {
+          rememberSessionMode(sessionId, recommendationMode);
+          setActiveSessionId(sessionId);
+        },
         onToken: (token) => {
           setStreamHasToken(true);
           setTransientMessages((current) => {
@@ -164,6 +255,7 @@ export function ChatPage() {
     },
     onSuccess: async (sessionId) => {
       if (sessionId) {
+        rememberSessionMode(sessionId, recommendationMode);
         setActiveSessionId(sessionId);
       }
 
@@ -183,6 +275,7 @@ export function ChatPage() {
         sessionId = await chatService.startRecommendationChat(recommendationMode, {
           onSession: (nextSessionId) => {
             sessionId = nextSessionId;
+            rememberSessionMode(nextSessionId, recommendationMode);
             setActiveSessionId(nextSessionId);
           },
         });
@@ -195,6 +288,7 @@ export function ChatPage() {
       await chatService.streamRecommendationChatMessage(recommendationMode, nextMessage, sessionId, {
         onSession: (nextSessionId) => {
           sessionId = nextSessionId;
+          rememberSessionMode(nextSessionId, recommendationMode);
           setActiveSessionId(nextSessionId);
         },
         onToken: (token) => {
@@ -239,6 +333,7 @@ export function ChatPage() {
     },
     onSuccess: async (response) => {
       if (response.sessionId) {
+        rememberSessionMode(response.sessionId, recommendationMode);
         setActiveSessionId(response.sessionId);
       }
       await queryClient.invalidateQueries({ queryKey: sessionsQueryKey });
@@ -248,6 +343,16 @@ export function ChatPage() {
   const deleteMutation = useMutation({
     mutationFn: (sessionId: string) => chatService.deleteChatSession(sessionId),
     onSuccess: async (_response, sessionId) => {
+      setSessionModeById((current) => {
+        if (!current[sessionId]) {
+          return current;
+        }
+
+        const next = { ...current };
+        delete next[sessionId];
+        writeSessionModeMap(currentUserIdentity, next);
+        return next;
+      });
       await queryClient.invalidateQueries({ queryKey: sessionsQueryKey });
       queryClient.removeQueries({ queryKey: ["chat-history", currentUserIdentity, sessionId] });
       if (sessionId === activeSessionId) {
@@ -289,26 +394,31 @@ export function ChatPage() {
       return messages;
     }
 
-    if (transientMessages.length > 0) {
-      return [];
-    }
-
     const firstUserMessageIndex = messages.findIndex((item) => item.role === "user");
     if (firstUserMessageIndex >= 0) {
       return messages.slice(firstUserMessageIndex);
     }
 
     return [];
-  }, [localWelcomeMessage, messages, transientMessages.length]);
+  }, [localWelcomeMessage, messages]);
+  const transientMessagesPersisted = useMemo(
+    () => areTransientMessagesPersisted(messages, transientMessages),
+    [messages, transientMessages],
+  );
+  const liveMessagesForDisplay = useMemo(
+    () => (transientMessagesPersisted ? [] : transientMessages),
+    [transientMessages, transientMessagesPersisted],
+  );
   const displayedMessages = useMemo(() => {
-    const visibleMessages = [...historyMessagesForDisplay, ...transientMessages].filter((item) => item.id !== WELCOME_MESSAGE_ID);
+    const visibleMessages = [...historyMessagesForDisplay, ...liveMessagesForDisplay].filter((item) => item.id !== WELCOME_MESSAGE_ID);
     return withAssistantResponseTimes(localWelcomeMessage ? [localWelcomeMessage, ...visibleMessages] : visibleMessages);
-  }, [historyMessagesForDisplay, localWelcomeMessage, transientMessages]);
+  }, [historyMessagesForDisplay, liveMessagesForDisplay, localWelcomeMessage]);
   const messageScrollKey = useMemo(
     () => displayedMessages.map((item) => `${item.id}:${item.content.length}`).join("|"),
     [displayedMessages],
   );
   const activeSession = sessionsQuery.data?.find((session) => session.id === activeSessionId);
+  const activeSessionMode = activeSessionId ? readSessionMode(activeSession, sessionModeById) : undefined;
   const chatTitle = activeSession ? getSessionLabel(activeSession) : "New Chat";
   const showHistoryLoading = historyQuery.isLoading && displayedMessages.length === 0;
   const loginRequired =
@@ -320,12 +430,42 @@ export function ChatPage() {
   }, [currentUserIdentity, hasToken, resetChatSurface]);
 
   useEffect(() => {
-    const hasPersistedConversation =
-      (historyQuery.data ?? []).some((item) => item.role === "user") &&
-      (historyQuery.data ?? []).some((item) => item.role === "assistant");
+    setSessionModeById(readSessionModeMap(currentUserIdentity));
+  }, [currentUserIdentity]);
+
+  useEffect(() => {
+    const sessionModes = sessionsQuery.data
+      ?.filter((session) => session.recommendationMode)
+      .reduce<Record<string, RecommendationMode>>((modes, session) => {
+        modes[session.id] = session.recommendationMode!;
+        return modes;
+      }, {});
+
+    if (!sessionModes || Object.keys(sessionModes).length === 0) {
+      return;
+    }
+
+    setSessionModeById((current) => {
+      const next = { ...current, ...sessionModes };
+      writeSessionModeMap(currentUserIdentity, next);
+      return next;
+    });
+  }, [currentUserIdentity, sessionsQuery.data]);
+
+  useEffect(() => {
+    if (!activeSessionId || !activeSessionMode || sendMutation.isPending || startMutation.isPending) {
+      return;
+    }
+
+    if (recommendationMode !== activeSessionMode) {
+      setRecommendationMode(activeSessionMode);
+    }
+  }, [activeSessionId, activeSessionMode, recommendationMode, sendMutation.isPending, startMutation.isPending]);
+
+  useEffect(() => {
     if (
       transientSince &&
-      hasPersistedConversation &&
+      transientMessagesPersisted &&
       historyQuery.dataUpdatedAt > transientSince &&
       !historyQuery.isFetching &&
       !sendMutation.isPending &&
@@ -335,7 +475,7 @@ export function ChatPage() {
       setTransientSince(null);
       setStreamHasToken(false);
     }
-  }, [historyQuery.data, historyQuery.dataUpdatedAt, historyQuery.isFetching, sendMutation.isPending, startMutation.isPending, transientSince]);
+  }, [historyQuery.dataUpdatedAt, historyQuery.isFetching, sendMutation.isPending, startMutation.isPending, transientMessagesPersisted, transientSince]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     if (scrollFrameRef.current !== null) {
@@ -433,12 +573,18 @@ export function ChatPage() {
   }
 
   function startNewChat() {
-    resetChatSurface(recommendationMode);
+    setRecommendationMode(DEFAULT_RECOMMENDATION_MODE);
+    resetChatSurface(DEFAULT_RECOMMENDATION_MODE);
   }
 
   function selectSession(sessionId: string) {
     if (sessionId === activeSessionId) {
       return;
+    }
+    const selectedSession = sessionsQuery.data?.find((session) => session.id === sessionId);
+    const selectedSessionMode = readSessionMode(selectedSession, sessionModeById);
+    if (selectedSessionMode) {
+      setRecommendationMode(selectedSessionMode);
     }
     setActiveSessionId(sessionId);
     setLocalWelcomeMessage(null);
@@ -471,7 +617,7 @@ export function ChatPage() {
 
   function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (hasToken && message.trim() && !startMutation.isPending) {
+    if (hasToken && message.trim() && !sendMutation.isPending && !startMutation.isPending) {
       shouldAutoScrollRef.current = true;
       setShowScrollToLatest(false);
       sendMutation.mutate(message.trim());
@@ -641,16 +787,23 @@ export function ChatPage() {
                         </p>
                       </div>
                     ) : null}
-                    {displayedMessages.map((item, index) => (
-                      <motion.div
-                        key={item.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2, delay: Math.min(index * 0.015, 0.12) }}
-                      >
-                        <ChatMessage message={item} />
-                      </motion.div>
-                    ))}
+                    {displayedMessages.map((item, index) => {
+                      const isStreamingMessage =
+                        !transientMessagesPersisted &&
+                        (sendMutation.isPending || startMutation.isPending) &&
+                        (item.id === "local-assistant-stream" || item.id === "local-assistant-start-stream");
+
+                      return (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2, delay: Math.min(index * 0.015, 0.12) }}
+                        >
+                          <ChatMessage message={item} isStreaming={isStreamingMessage} />
+                        </motion.div>
+                      );
+                    })}
                     {sendMutation.isPending && !streamHasToken ? <TypingIndicator /> : null}
                     <div ref={messagesEndRef} />
                   </div>

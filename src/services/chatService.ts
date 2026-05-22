@@ -1,6 +1,8 @@
 import { API_BASE_URL, ApiError, apiRequest } from "@/services/apiClient";
 import { clearAuthStorage, getStoredAccessToken, getStoredAuthUser } from "@/services/authStorage";
 
+export type RecommendationMode = "user-based" | "cluster-based" | "graph-rag";
+
 export interface ChatSession {
   id: string;
   title?: string;
@@ -8,6 +10,7 @@ export interface ChatSession {
   createdAt?: string;
   updatedAt?: string;
   ownerValues?: string[];
+  recommendationMode?: RecommendationMode;
 }
 
 export interface NormalizedChatMessage {
@@ -17,8 +20,6 @@ export interface NormalizedChatMessage {
   createdAt?: string;
   responseTimeMs?: number;
 }
-
-export type RecommendationMode = "user-based" | "cluster-based" | "graph-rag";
 
 export interface RecommendationStreamHandlers {
   onSession?: (sessionId: string) => void;
@@ -147,6 +148,40 @@ function normalizeRole(value?: string): "user" | "assistant" {
   return "assistant";
 }
 
+function normalizeRecommendationMode(value: unknown): RecommendationMode | undefined {
+  if (typeof value !== "string" || !value.trim()) {
+    return undefined;
+  }
+
+  const normalizedMode = value.trim().toLowerCase().replace(/[\s_]+/g, "-");
+  if (normalizedMode === "user" || normalizedMode === "user-based") {
+    return "user-based";
+  }
+  if (normalizedMode === "cluster" || normalizedMode === "cluster-based") {
+    return "cluster-based";
+  }
+  if (normalizedMode === "graph" || normalizedMode === "graphrag" || normalizedMode === "graph-rag") {
+    return "graph-rag";
+  }
+
+  return undefined;
+}
+
+function readRecommendationMode(source: unknown): RecommendationMode | undefined {
+  if (!isRecord(source)) {
+    return undefined;
+  }
+
+  for (const key of ["recommendationMode", "recommendation_mode", "chatMode", "chat_mode", "mode", "type", "source"]) {
+    const mode = normalizeRecommendationMode(source[key]);
+    if (mode) {
+      return mode;
+    }
+  }
+
+  return normalizeRecommendationMode(isRecord(source.data) ? source.data.mode : undefined);
+}
+
 const userContentKeys = ["question", "content", "message", "text"];
 const assistantContentKeys = ["answer", "response", "reply", "content", "message", "text", "result", "recommendation", "recommendations"];
 
@@ -165,6 +200,7 @@ function normalizeSession(item: unknown): ChatSession | null {
     createdAt: readString(item, ["created_at", "createdAt", "timestamp"]) ?? undefined,
     updatedAt: readString(item, ["updated_at", "updatedAt", "timestamp"]) ?? undefined,
     ownerValues: collectOwnerValues(item),
+    recommendationMode: readRecommendationMode(item),
   };
 }
 
