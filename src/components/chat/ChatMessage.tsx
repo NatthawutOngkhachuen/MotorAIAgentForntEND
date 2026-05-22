@@ -187,7 +187,7 @@ function AssistantMessageContent({ content, isStreaming = false }: { content: st
   }
 
   return (
-    <div className="space-y-4 text-base leading-7 text-foreground">
+    <div className="space-y-3 text-sm leading-6 text-foreground sm:space-y-4 sm:text-base sm:leading-7">
       {blocks.map((block, blockIndex) => {
         if (block.type === "table") {
           return (
@@ -255,9 +255,9 @@ export const ChatMessage = memo(function ChatMessage({ message, isStreaming = fa
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
       <article
         className={cn(
-          "relative max-w-[88%] overflow-hidden px-4 py-3 shadow-showroom backdrop-blur-xl sm:max-w-[75%]",
+          "relative max-w-[92%] overflow-hidden px-3 py-2.5 shadow-showroom backdrop-blur-xl sm:max-w-[75%] sm:px-4 sm:py-3",
           isUser
-            ? "rounded-[18px_8px_18px_18px] bg-gradient-to-br from-blue-700 via-blue-600 to-neon-cyan text-primary-foreground shadow-glow ring-1 ring-neon-cyan/35 md:max-w-[70%]"
+            ? "rounded-[18px_8px_18px_18px] bg-gradient-to-br from-blue-700 via-blue-600 to-neon-cyan text-primary-foreground shadow-glow ring-1 ring-neon-cyan/35 max-sm:max-w-[84%] md:max-w-[70%]"
             : "rounded-[8px_18px_18px_18px] bg-graphite-900/90 ai-glow md:max-w-[75%]",
         )}
       >
@@ -270,7 +270,7 @@ export const ChatMessage = memo(function ChatMessage({ message, isStreaming = fa
           </div>
         ) : null}
         {isUser ? (
-          <p className="whitespace-pre-wrap break-words text-base leading-7 text-white">{message.content}</p>
+          <p className="whitespace-pre-wrap break-words text-sm leading-6 text-white sm:text-base sm:leading-7">{message.content}</p>
         ) : (
           <AssistantMessageContent content={message.content} isStreaming={isStreaming} />
         )}
@@ -306,13 +306,13 @@ export function CompactChatError({ message, onRetry }: CompactChatErrorProps) {
 export function TypingIndicator() {
   return (
     <div className="flex justify-start">
-      <div className="relative max-w-[88%] overflow-hidden rounded-[8px_18px_18px_18px] bg-graphite-900/90 px-4 py-3 shadow-glow ring-1 ring-neon-cyan/25 backdrop-blur-xl sm:max-w-[75%]">
+      <div className="relative max-w-[92%] overflow-hidden rounded-[8px_18px_18px_18px] bg-graphite-900/90 px-3 py-2.5 shadow-glow ring-1 ring-neon-cyan/25 backdrop-blur-xl sm:max-w-[75%] sm:px-4 sm:py-3">
         <span className="absolute inset-y-3 left-0 w-1 bg-gradient-to-b from-neon-cyan to-transparent" />
         <div className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-neon-cyan">
           <Bot className="h-4 w-4" />
           ASSISTANT
         </div>
-        <div className="flex items-center gap-3 text-base text-muted-foreground">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground sm:text-base">
           <span>MotoAI is thinking...</span>
           <span className="flex gap-1">
             {[0, 1, 2].map((dot) => (

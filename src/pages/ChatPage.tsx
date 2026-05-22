@@ -1,8 +1,8 @@
 import { FormEvent, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowDown, Clock, LogIn, MessageSquareText, Plus, Send, Trash2 } from "lucide-react";
+import { ArrowDown, Clock, History, LogIn, LogOut, MessageSquareText, Plus, Send, Trash2, X } from "lucide-react";
 import { ChatMessage, TypingIndicator } from "@/components/chat/ChatMessage";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState } from "@/components/states/EmptyState";
@@ -16,7 +16,7 @@ import { queryClient } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { isUnauthorizedError } from "@/services/apiClient";
 import { chatService, type ChatSession, type NormalizedChatMessage, type RecommendationMode } from "@/services/chatService";
-import { getStoredAccessToken, getStoredAuthIdentity } from "@/services/authStorage";
+import { clearAuthStorage, getStoredAccessToken, getStoredAuthIdentity } from "@/services/authStorage";
 
 function getSessionLabel(session: ChatSession) {
   return session.title?.trim() || session.preview?.trim() || "New Chat";
@@ -157,14 +157,6 @@ function historyIncludesMessage(historyMessages: NormalizedChatMessage[], transi
   });
 }
 
-function areTransientMessagesPersisted(historyMessages: NormalizedChatMessage[], transientMessages: NormalizedChatMessage[]) {
-  if (transientMessages.length === 0) {
-    return false;
-  }
-
-  return transientMessages.every((message) => historyIncludesMessage(historyMessages, message));
-}
-
 function createWelcomeMessage(mode: RecommendationMode): NormalizedChatMessage {
   return {
     id: WELCOME_MESSAGE_ID,
@@ -174,6 +166,7 @@ function createWelcomeMessage(mode: RecommendationMode): NormalizedChatMessage {
 }
 
 export function ChatPage() {
+  const navigate = useNavigate();
   const [message, setMessage] = useState("");
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>();
   const [recommendationMode, setRecommendationMode] = useState<RecommendationMode>(DEFAULT_RECOMMENDATION_MODE);
@@ -184,6 +177,7 @@ export function ChatPage() {
   const [transientSince, setTransientSince] = useState<number | null>(null);
   const [streamHasToken, setStreamHasToken] = useState(false);
   const [showScrollToLatest, setShowScrollToLatest] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -401,13 +395,13 @@ export function ChatPage() {
 
     return [];
   }, [localWelcomeMessage, messages]);
-  const transientMessagesPersisted = useMemo(
-    () => areTransientMessagesPersisted(messages, transientMessages),
+  const liveMessagesForDisplay = useMemo(
+    () => transientMessages.filter((transientMessage) => !historyIncludesMessage(messages, transientMessage)),
     [messages, transientMessages],
   );
-  const liveMessagesForDisplay = useMemo(
-    () => (transientMessagesPersisted ? [] : transientMessages),
-    [transientMessages, transientMessagesPersisted],
+  const transientMessagesPersisted = useMemo(
+    () => transientMessages.length > 0 && liveMessagesForDisplay.length === 0,
+    [liveMessagesForDisplay.length, transientMessages.length],
   );
   const displayedMessages = useMemo(() => {
     const visibleMessages = [...historyMessagesForDisplay, ...liveMessagesForDisplay].filter((item) => item.id !== WELCOME_MESSAGE_ID);
@@ -572,7 +566,14 @@ export function ChatPage() {
     }
   }
 
+  function signOut() {
+    clearAuthStorage();
+    queryClient.clear();
+    navigate("/login", { replace: true });
+  }
+
   function startNewChat() {
+    setIsHistoryOpen(false);
     setRecommendationMode(DEFAULT_RECOMMENDATION_MODE);
     resetChatSurface(DEFAULT_RECOMMENDATION_MODE);
   }
@@ -596,6 +597,7 @@ export function ChatPage() {
     lastHistoryScrollSessionRef.current = undefined;
     sendMutation.reset();
     startMutation.reset();
+    setIsHistoryOpen(false);
   }
 
   function selectRecommendationMode(mode: RecommendationMode) {
@@ -622,6 +624,90 @@ export function ChatPage() {
       setShowScrollToLatest(false);
       sendMutation.mutate(message.trim());
     }
+  }
+
+  function renderHistoryPanel(showClose = false) {
+    return (
+      <>
+        <div className="ai-light-sheen opacity-35" />
+        <div className="relative mb-4 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-neon-cyan">Chat History</p>
+            <p className="mt-1 text-sm text-muted-foreground">Your saved sessions</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button type="button" onClick={startNewChat} className="shrink-0 shadow-glow">
+              <Plus className="h-4 w-4" />
+              {startMutation.isPending ? "Starting..." : "New Chat"}
+            </Button>
+            {showClose ? (
+              <Button type="button" variant="outline" size="icon" aria-label="Close chat history" onClick={() => setIsHistoryOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="premium-scrollbar relative min-h-0 flex-1 overflow-y-auto pr-1">
+          {sessionsQuery.isLoading ? <LoadingState /> : null}
+          {sessionsQuery.isError ? <ErrorState message={sessionsQuery.error.message} onRetry={() => sessionsQuery.refetch()} /> : null}
+          {!sessionsQuery.isLoading && !sessionsQuery.isError && sessionsQuery.data?.length === 0 ? (
+            <div className="rounded-[14px] bg-carbon-950/50 p-4 text-center text-sm text-muted-foreground ring-1 ring-white/10">
+              No chat history yet
+            </div>
+          ) : null}
+          <div className="space-y-2">
+            {sessionsQuery.data?.map((session) => {
+              const isActive = session.id === activeSessionId;
+              const title = getSessionLabel(session);
+              const time = formatSessionTime(session);
+
+              return (
+                <motion.div
+                  key={session.id}
+                  whileHover={{ x: 3 }}
+                  transition={{ duration: 0.18 }}
+                  className={cn(
+                    "group relative flex w-full items-start gap-2 rounded-[14px] p-3 text-left transition duration-200",
+                    "bg-carbon-950/38 hover:bg-graphite-800/55",
+                    isActive && "bg-gradient-to-r from-blue-700/18 via-neon-cyan/10 to-transparent shadow-glow ring-1 ring-neon-cyan/25",
+                  )}
+                >
+                  {isActive ? <span className="absolute bottom-2 left-0 top-2 w-1 bg-gradient-to-b from-neon-cyan to-blue-600 shadow-glow" /> : null}
+                  <button type="button" onClick={() => selectSession(session.id)} className="flex min-w-0 flex-1 items-start gap-2 text-left">
+                    <MessageSquareText className={cn("mt-0.5 h-4 w-4 shrink-0", isActive ? "text-neon-cyan" : "text-neon-steel")} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-foreground">{title}</p>
+                      {session.preview && session.preview !== title ? (
+                        <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{session.preview}</p>
+                      ) : null}
+                      {time ? (
+                        <p className="mt-2 inline-flex items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-wide text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {time}
+                        </p>
+                      ) : null}
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${title}`}
+                    onClick={(event) => deleteSession(event, session.id)}
+                    className={cn(
+                      "grid h-8 w-8 shrink-0 place-items-center rounded-md border border-transparent text-muted-foreground transition",
+                      "hover:border-destructive/35 hover:bg-destructive/10 hover:text-destructive lg:opacity-0 lg:group-hover:opacity-100",
+                      deleteMutation.isPending && "pointer-events-none opacity-50",
+                    )}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </>
+    );
   }
 
   if (loginRequired) {
@@ -652,96 +738,56 @@ export function ChatPage() {
   }
 
   return (
-    <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex min-h-[calc(100vh-3rem)] flex-col lg:h-[calc(100vh-3rem)] lg:overflow-hidden">
-      <PageHeader
-        title="Chat"
-      />
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <aside className="carbon-panel moto-cut-card relative flex max-h-[calc(100vh-11rem)] min-h-[18rem] flex-col p-4 lg:max-h-none lg:min-h-0">
-          <div className="ai-light-sheen opacity-35" />
-          <div className="relative mb-4 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-neon-cyan">Chat History</p>
-              <p className="mt-1 text-sm text-muted-foreground">Your saved sessions</p>
-            </div>
-            <Button type="button" onClick={startNewChat} className="shrink-0 shadow-glow">
-              <Plus className="h-4 w-4" />
-              {startMutation.isPending ? "Starting..." : "New Chat"}
-            </Button>
-          </div>
-
-          <div className="premium-scrollbar relative min-h-0 flex-1 overflow-y-auto pr-1">
-            {sessionsQuery.isLoading ? <LoadingState /> : null}
-            {sessionsQuery.isError ? <ErrorState message={sessionsQuery.error.message} onRetry={() => sessionsQuery.refetch()} /> : null}
-            {!sessionsQuery.isLoading && !sessionsQuery.isError && sessionsQuery.data?.length === 0 ? (
-              <div className="rounded-[14px] bg-carbon-950/50 p-4 text-center text-sm text-muted-foreground ring-1 ring-white/10">
-                No chat history yet
-              </div>
-            ) : null}
-            <div className="space-y-2">
-              {sessionsQuery.data?.map((session) => {
-                const isActive = session.id === activeSessionId;
-                const title = getSessionLabel(session);
-                const time = formatSessionTime(session);
-
-                return (
-                  <motion.div
-                    key={session.id}
-                    whileHover={{ x: 3 }}
-                    transition={{ duration: 0.18 }}
-                    className={cn(
-                      "group relative flex w-full items-start gap-2 rounded-[14px] p-3 text-left transition duration-200",
-                      "bg-carbon-950/38 hover:bg-graphite-800/55",
-                      isActive && "bg-gradient-to-r from-blue-700/18 via-neon-cyan/10 to-transparent shadow-glow ring-1 ring-neon-cyan/25",
-                    )}
-                  >
-                    {isActive ? <span className="absolute bottom-2 left-0 top-2 w-1 bg-gradient-to-b from-neon-cyan to-blue-600 shadow-glow" /> : null}
-                    <button type="button" onClick={() => selectSession(session.id)} className="flex min-w-0 flex-1 items-start gap-2 text-left">
-                      <MessageSquareText className={cn("mt-0.5 h-4 w-4 shrink-0", isActive ? "text-neon-cyan" : "text-neon-steel")} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-foreground">{title}</p>
-                        {session.preview && session.preview !== title ? (
-                          <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{session.preview}</p>
-                        ) : null}
-                        {time ? (
-                          <p className="mt-2 inline-flex items-center gap-1 text-[0.68rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            {time}
-                          </p>
-                        ) : null}
-                      </div>
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={`Delete ${title}`}
-                      onClick={(event) => deleteSession(event, session.id)}
-                      className={cn(
-                        "grid h-8 w-8 shrink-0 place-items-center rounded-md border border-transparent text-muted-foreground opacity-0 transition",
-                        "hover:border-destructive/35 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100",
-                        deleteMutation.isPending && "pointer-events-none opacity-50",
-                      )}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
+    <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background lg:h-[calc(100vh-3rem)]">
+      <div className="hidden lg:block">
+        <PageHeader
+          title="Chat"
+        />
+      </div>
+      {isHistoryOpen ? (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            aria-label="Close chat history overlay"
+            className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]"
+            onClick={() => setIsHistoryOpen(false)}
+          />
+          <motion.aside
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ duration: 0.2 }}
+            className="carbon-panel absolute inset-y-0 left-0 flex w-[min(22rem,88vw)] flex-col rounded-none p-4 shadow-blue"
+          >
+            {renderHistoryPanel(true)}
+          </motion.aside>
+        </div>
+      ) : null}
+      <div className="grid min-h-0 flex-1 gap-0 lg:gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
+        <aside className="carbon-panel moto-cut-card relative hidden max-h-[calc(100vh-11rem)] min-h-[18rem] flex-col p-4 lg:flex lg:max-h-none lg:min-h-0">
+          {renderHistoryPanel()}
         </aside>
 
-        <div className="flex min-h-[34rem] min-w-0 flex-col gap-4 lg:min-h-0">
-          <Card className="cockpit-surface gradient-border min-h-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 lg:gap-4">
+          <Card className="cockpit-surface gradient-border min-h-0 flex-1 max-lg:rounded-none max-lg:border-0 max-lg:shadow-none max-lg:[clip-path:none]">
             <div className="ai-light-sheen opacity-35" />
-            <CardContent className="flex h-full min-h-[28rem] flex-col p-0">
-              <div className="relative flex items-center justify-between gap-3 px-5 py-4">
+            <CardContent className="flex h-full min-h-0 flex-col p-0 lg:min-h-[28rem]">
+              <div className="relative flex flex-col gap-3 border-b border-neon-cyan/20 px-3 py-3 lg:flex-row lg:items-center lg:justify-between lg:border-b-0 lg:px-5 lg:py-4">
                 <div className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-neon-cyan/45 via-white/10 to-transparent" />
-                <div className="min-w-0">
-                  <p className="text-sm font-black uppercase tracking-[0.18em] text-neon-cyan">MotoAI Assistant</p>
-                  <h2 className="mt-1 truncate text-2xl font-black uppercase tracking-wide text-foreground">{chatTitle}</h2>
+                <div className="flex w-full min-w-0 items-center gap-2 lg:w-auto">
+                  <Button type="button" variant="outline" size="icon" aria-label="Open chat history" onClick={() => setIsHistoryOpen(true)} className="h-9 w-9 shrink-0 lg:hidden">
+                    <History className="h-4 w-4" />
+                  </Button>
+                  <div className="min-w-0">
+                    <p className="text-[0.7rem] font-black uppercase tracking-[0.16em] text-neon-cyan sm:text-sm sm:tracking-[0.18em]">MotoAI Assistant</p>
+                    <h2 className="mt-0.5 truncate text-lg font-black uppercase tracking-wide text-foreground sm:text-xl lg:mt-1 lg:text-2xl">{chatTitle}</h2>
+                  </div>
+                  <Button type="button" variant="outline" size="icon" aria-label="Sign out" onClick={signOut} className="ml-auto h-9 w-9 shrink-0 lg:hidden">
+                    <LogOut className="h-4 w-4" />
+                  </Button>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <div className="grid grid-cols-3 rounded-md bg-carbon-950/55 p-1 ring-1 ring-white/10">
+                <div className="flex w-full shrink-0 items-center gap-2 lg:w-auto">
+                  <div className="grid min-w-0 flex-1 grid-cols-3 rounded-md bg-carbon-950/55 p-1 ring-1 ring-white/10 lg:flex-none">
                     {RECOMMENDATION_MODES.map((mode) => (
                       <button
                         key={mode.value}
@@ -749,7 +795,7 @@ export function ChatPage() {
                         disabled={sendMutation.isPending || startMutation.isPending}
                         onClick={() => selectRecommendationMode(mode.value as RecommendationMode)}
                         className={cn(
-                          "rounded px-3 py-1.5 text-xs font-black uppercase tracking-wide transition disabled:pointer-events-none disabled:opacity-50",
+                          "rounded px-2 py-1.5 text-[0.66rem] font-black uppercase tracking-wide transition disabled:pointer-events-none disabled:opacity-50 sm:text-xs lg:px-3",
                           recommendationMode === mode.value
                             ? "bg-neon-cyan text-carbon-950 shadow-glow"
                             : "text-muted-foreground hover:bg-graphite-800/80 hover:text-foreground",
@@ -759,7 +805,7 @@ export function ChatPage() {
                       </button>
                     ))}
                   </div>
-                  <Button type="button" size="icon" variant="outline" aria-label="Start new chat" onClick={startNewChat} disabled={startMutation.isPending || sendMutation.isPending} className="shrink-0">
+                  <Button type="button" size="icon" variant="outline" aria-label="Start new chat" onClick={startNewChat} disabled={startMutation.isPending || sendMutation.isPending} className="h-9 w-9 shrink-0 lg:h-10 lg:w-10">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -770,7 +816,7 @@ export function ChatPage() {
                 <div
                   ref={messagesContainerRef}
                   onScroll={handleMessagesScroll}
-                  className="premium-scrollbar relative h-full min-h-0 overflow-y-auto overflow-x-hidden px-5 py-5 pb-20"
+                  className="premium-scrollbar relative h-full min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 pb-5 sm:px-4 lg:px-5 lg:py-5 lg:pb-20"
                   style={{ overflowAnchor: "none" }}
                 >
                   <div className="flex min-h-full flex-col gap-4">
@@ -825,8 +871,8 @@ export function ChatPage() {
           {startMutation.isError ? <ErrorState message={startMutation.error.message} /> : null}
           {sendMutation.isError ? <ErrorState message={sendMutation.error.message} /> : null}
           {deleteMutation.isError ? <ErrorState message={deleteMutation.error.message} /> : null}
-          <form onSubmit={onSubmit} className="cockpit-surface gradient-border shrink-0 rounded-[18px] p-3">
-            <div className="flex flex-col gap-3 sm:flex-row">
+          <form onSubmit={onSubmit} className="cockpit-surface gradient-border shrink-0 rounded-none border-x-0 border-b-0 p-2 shadow-showroom lg:rounded-[18px] lg:border lg:p-3">
+            <div className="flex items-end gap-2 sm:gap-3">
               <Textarea
                 ref={inputRef}
                 value={message}
@@ -838,11 +884,11 @@ export function ChatPage() {
                   }
                 }}
                 placeholder="Type a sales or recommendation query..."
-                className="min-h-20 flex-1 resize-none border-0 bg-carbon-950/55 text-base leading-7 shadow-inner ring-1 ring-white/10 focus:ring-neon-cyan/35"
+                className="min-h-11 max-h-28 flex-1 resize-none border-0 bg-carbon-950/55 text-sm leading-6 shadow-inner ring-1 ring-white/10 focus:ring-neon-cyan/35 sm:text-base sm:leading-7 lg:min-h-20"
               />
-              <Button type="submit" size="lg" disabled={sendMutation.isPending || startMutation.isPending || !message.trim()} className="sm:self-end">
+              <Button type="submit" size="lg" disabled={sendMutation.isPending || startMutation.isPending || !message.trim()} className="h-11 shrink-0 px-3 sm:h-12 sm:px-6">
                 <Send className="h-4 w-4" />
-                {sendMutation.isPending ? "Sending..." : "Send"}
+                <span className="hidden sm:inline">{sendMutation.isPending ? "Sending..." : "Send"}</span>
               </Button>
             </div>
           </form>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Expand, Maximize2, RefreshCw, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { Expand, Maximize2, MessageSquareText, Monitor, RefreshCw, Search, ZoomIn, ZoomOut } from "lucide-react";
 import { GraphCanvas, type GraphCanvasHandle } from "@/components/graph/GraphCanvas";
 import { GraphDetailPanel } from "@/components/graph/GraphDetailPanel";
 import { GraphFilterPanel } from "@/components/graph/GraphFilterPanel";
@@ -129,12 +130,35 @@ export function KnowledgeGraphPage() {
   };
 
   return (
-    <motion.section
-      className="grid min-h-[calc(100vh-3rem)] grid-rows-[auto_minmax(0,1fr)] gap-4 lg:h-[calc(100vh-3rem)] lg:overflow-hidden"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.28 }}
-    >
+    <>
+      <motion.section
+        className="flex min-h-[calc(100dvh-5rem)] items-center justify-center px-3 py-6 md:hidden"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.24 }}
+      >
+        <div className="carbon-panel moto-cut-card max-w-md p-6 text-center">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-[16px] bg-gradient-to-br from-blue-700/22 to-neon-cyan/10 shadow-glow ring-1 ring-neon-cyan/25">
+            <Monitor className="h-7 w-7 text-neon-cyan" />
+          </div>
+          <h1 className="text-xl font-black text-foreground">Knowledge Graph ใช้บนจอใหญ่</h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            หน้านี้มีกราฟขนาดใหญ่และเหมาะกับแท็บเล็ตหรือเดสก์ท็อป สำหรับมือถือให้ใช้งานหน้า Chat เป็นหลัก
+          </p>
+          <Button asChild className="mt-5">
+            <Link to="/chat">
+              <MessageSquareText className="h-4 w-4" />
+              กลับไปหน้า Chat
+            </Link>
+          </Button>
+        </div>
+      </motion.section>
+      <motion.section
+        className="hidden min-h-[calc(100vh-3rem)] grid-rows-[auto_minmax(0,1fr)] gap-4 md:grid lg:h-[calc(100vh-3rem)] lg:overflow-hidden"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.28 }}
+      >
       <div className="cockpit-surface moto-cut-card px-4 py-3">
         <div className="ai-light-sheen opacity-35" />
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -208,6 +232,7 @@ export function KnowledgeGraphPage() {
           </div>
         )
       ) : null}
-    </motion.section>
+      </motion.section>
+    </>
   );
 }

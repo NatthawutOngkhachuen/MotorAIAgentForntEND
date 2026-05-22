@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   Bot,
   ChevronRight,
@@ -68,7 +68,9 @@ function UserProfileCard({ user, onSignOut, compact = false }: { user: StoredAut
 
 export function AppLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = getStoredAuthUser();
+  const isChatRoute = location.pathname.startsWith("/chat");
 
   function onSignOut() {
     clearAuthStorage();
@@ -125,15 +127,19 @@ export function AppLayout() {
       </aside>
 
       <div className="lg:pl-72">
-        <header className="sticky top-0 z-10 bg-carbon-950/90 px-4 py-3 shadow-showroom backdrop-blur-xl lg:hidden">
+        <header className={cn("sticky top-0 z-10 bg-carbon-950/90 px-4 py-3 shadow-showroom backdrop-blur-xl lg:hidden", isChatRoute && "hidden")}>
           <div className="flex items-center justify-between">
             <div className="moto-heading flex items-center gap-2 text-base">
               <Bot className="h-5 w-5 text-neon-cyan" />
               MOTOAI AGENT
             </div>
+            <Button type="button" variant="ghost" size="sm" onClick={onSignOut}>
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
           </div>
           <nav className="premium-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1">
-            {navigation.map((item) => (
+            {navigation.filter((item) => item.to === "/chat").map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -148,10 +154,14 @@ export function AppLayout() {
                 {item.label}
               </NavLink>
             ))}
-            <UserProfileCard user={user} onSignOut={onSignOut} compact />
           </nav>
         </header>
-        <main className="mx-auto min-h-screen w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <main
+          className={cn(
+            "mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:min-h-screen lg:px-8",
+            isChatRoute ? "min-h-[100dvh] max-w-none px-0 py-0 lg:max-w-7xl lg:px-8 lg:py-6" : "min-h-screen",
+          )}
+        >
           <Outlet />
         </main>
       </div>
