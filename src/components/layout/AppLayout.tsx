@@ -81,7 +81,12 @@ export function AppLayout() {
   return (
     <div className="min-h-screen">
       <CyberBackground />
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-72 bg-carbon-950/78 p-4 shadow-showroom backdrop-blur-xl lg:block">
+      <aside
+        className={cn(
+          "fixed inset-y-0 left-0 z-20 hidden w-72 bg-carbon-950/78 p-4 shadow-showroom backdrop-blur-xl",
+          isChatRoute ? "xl:block" : "lg:block",
+        )}
+      >
         <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-neon-cyan/25 to-transparent" />
         <div className="ai-light-sheen opacity-35" />
         <div className="flex h-full flex-col">
@@ -126,7 +131,7 @@ export function AppLayout() {
         </div>
       </aside>
 
-      <div className="lg:pl-72">
+      <div className={cn(isChatRoute ? "xl:pl-72" : "lg:pl-72")}>
         <header className={cn("sticky top-0 z-10 bg-carbon-950/90 px-4 py-3 shadow-showroom backdrop-blur-xl lg:hidden", isChatRoute && "hidden")}>
           <div className="flex items-center justify-between">
             <div className="moto-heading flex items-center gap-2 text-base">
@@ -158,8 +163,8 @@ export function AppLayout() {
         </header>
         <main
           className={cn(
-            "mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:min-h-screen lg:px-8",
-            isChatRoute ? "min-h-[100dvh] max-w-none px-0 py-0 lg:max-w-7xl lg:px-8 lg:py-6" : "min-h-screen",
+            "mx-auto w-full max-w-7xl px-4 py-6 sm:px-6",
+            isChatRoute ? "min-h-[100dvh] max-w-none px-0 py-0 xl:min-h-screen xl:max-w-7xl xl:px-8 xl:py-6" : "min-h-screen lg:px-8 lg:min-h-screen",
           )}
         >
           <Outlet />

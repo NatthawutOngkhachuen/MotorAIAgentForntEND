@@ -738,14 +738,14 @@ export function ChatPage() {
   }
 
   return (
-    <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background lg:h-[calc(100vh-3rem)]">
-      <div className="hidden lg:block">
+    <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-background xl:h-[calc(100vh-3rem)]">
+      <div className="hidden xl:block">
         <PageHeader
           title="Chat"
         />
       </div>
       {isHistoryOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 xl:hidden">
           <button
             type="button"
             aria-label="Close chat history overlay"
@@ -763,31 +763,31 @@ export function ChatPage() {
           </motion.aside>
         </div>
       ) : null}
-      <div className="grid min-h-0 flex-1 gap-0 lg:gap-4 lg:grid-cols-[20rem_minmax(0,1fr)]">
-        <aside className="carbon-panel moto-cut-card relative hidden max-h-[calc(100vh-11rem)] min-h-[18rem] flex-col p-4 lg:flex lg:max-h-none lg:min-h-0">
+      <div className="grid min-h-0 flex-1 gap-0 xl:gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
+        <aside className="carbon-panel moto-cut-card relative hidden max-h-[calc(100vh-11rem)] min-h-[18rem] flex-col p-4 xl:flex xl:max-h-none xl:min-h-0">
           {renderHistoryPanel()}
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 lg:gap-4">
-          <Card className="cockpit-surface gradient-border min-h-0 flex-1 max-lg:rounded-none max-lg:border-0 max-lg:shadow-none max-lg:[clip-path:none]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-0 xl:gap-4">
+          <Card className="cockpit-surface gradient-border min-h-0 flex-1 max-xl:rounded-none max-xl:border-0 max-xl:shadow-none max-xl:[clip-path:none]">
             <div className="ai-light-sheen opacity-35" />
-            <CardContent className="flex h-full min-h-0 flex-col p-0 lg:min-h-[28rem]">
-              <div className="relative flex flex-col gap-3 border-b border-neon-cyan/20 px-3 py-3 lg:flex-row lg:items-center lg:justify-between lg:border-b-0 lg:px-5 lg:py-4">
+            <CardContent className="flex h-full min-h-0 flex-col p-0 xl:min-h-[28rem]">
+              <div className="relative flex flex-col gap-3 border-b border-neon-cyan/20 px-3 py-3 xl:flex-row xl:items-center xl:justify-between xl:border-b-0 xl:px-5 xl:py-4">
                 <div className="absolute inset-x-5 bottom-0 h-px bg-gradient-to-r from-neon-cyan/45 via-white/10 to-transparent" />
-                <div className="flex w-full min-w-0 items-center gap-2 lg:w-auto">
-                  <Button type="button" variant="outline" size="icon" aria-label="Open chat history" onClick={() => setIsHistoryOpen(true)} className="h-9 w-9 shrink-0 lg:hidden">
+                <div className="flex w-full min-w-0 items-center gap-2 xl:w-auto">
+                  <Button type="button" variant="outline" size="icon" aria-label="Open chat history" onClick={() => setIsHistoryOpen(true)} className="h-9 w-9 shrink-0 xl:hidden">
                     <History className="h-4 w-4" />
                   </Button>
                   <div className="min-w-0">
                     <p className="text-[0.7rem] font-black uppercase tracking-[0.16em] text-neon-cyan sm:text-sm sm:tracking-[0.18em]">MotoAI Assistant</p>
-                    <h2 className="mt-0.5 truncate text-lg font-black uppercase tracking-wide text-foreground sm:text-xl lg:mt-1 lg:text-2xl">{chatTitle}</h2>
+                    <h2 className="mt-0.5 truncate text-lg font-black uppercase tracking-wide text-foreground sm:text-xl xl:mt-1 xl:text-2xl">{chatTitle}</h2>
                   </div>
-                  <Button type="button" variant="outline" size="icon" aria-label="Sign out" onClick={signOut} className="ml-auto h-9 w-9 shrink-0 lg:hidden">
+                  <Button type="button" variant="outline" size="icon" aria-label="Sign out" onClick={signOut} className="ml-auto h-9 w-9 shrink-0 xl:hidden">
                     <LogOut className="h-4 w-4" />
                   </Button>
                 </div>
-                <div className="flex w-full shrink-0 items-center gap-2 lg:w-auto">
-                  <div className="grid min-w-0 flex-1 grid-cols-3 rounded-md bg-carbon-950/55 p-1 ring-1 ring-white/10 lg:flex-none">
+                <div className="flex w-full shrink-0 items-center gap-2 xl:w-auto">
+                  <div className="grid min-w-0 flex-1 grid-cols-3 rounded-md bg-carbon-950/55 p-1 ring-1 ring-white/10 xl:flex-none">
                     {RECOMMENDATION_MODES.map((mode) => (
                       <button
                         key={mode.value}
@@ -795,7 +795,7 @@ export function ChatPage() {
                         disabled={sendMutation.isPending || startMutation.isPending}
                         onClick={() => selectRecommendationMode(mode.value as RecommendationMode)}
                         className={cn(
-                          "rounded px-2 py-1.5 text-[0.66rem] font-black uppercase tracking-wide transition disabled:pointer-events-none disabled:opacity-50 sm:text-xs lg:px-3",
+                          "rounded px-2 py-1.5 text-[0.66rem] font-black uppercase tracking-wide transition disabled:pointer-events-none disabled:opacity-50 sm:text-xs xl:px-3",
                           recommendationMode === mode.value
                             ? "bg-neon-cyan text-carbon-950 shadow-glow"
                             : "text-muted-foreground hover:bg-graphite-800/80 hover:text-foreground",
@@ -805,7 +805,7 @@ export function ChatPage() {
                       </button>
                     ))}
                   </div>
-                  <Button type="button" size="icon" variant="outline" aria-label="Start new chat" onClick={startNewChat} disabled={startMutation.isPending || sendMutation.isPending} className="h-9 w-9 shrink-0 lg:h-10 lg:w-10">
+                  <Button type="button" size="icon" variant="outline" aria-label="Start new chat" onClick={startNewChat} disabled={startMutation.isPending || sendMutation.isPending} className="h-9 w-9 shrink-0 xl:h-10 xl:w-10">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
@@ -816,7 +816,7 @@ export function ChatPage() {
                 <div
                   ref={messagesContainerRef}
                   onScroll={handleMessagesScroll}
-                  className="premium-scrollbar relative h-full min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 pb-5 sm:px-4 lg:px-5 lg:py-5 lg:pb-20"
+                  className="premium-scrollbar relative h-full min-h-0 overflow-y-auto overflow-x-hidden px-3 py-4 pb-5 sm:px-4 xl:px-5 xl:py-5 xl:pb-20"
                   style={{ overflowAnchor: "none" }}
                 >
                   <div className="flex min-h-full flex-col gap-4">
@@ -871,7 +871,7 @@ export function ChatPage() {
           {startMutation.isError ? <ErrorState message={startMutation.error.message} /> : null}
           {sendMutation.isError ? <ErrorState message={sendMutation.error.message} /> : null}
           {deleteMutation.isError ? <ErrorState message={deleteMutation.error.message} /> : null}
-          <form onSubmit={onSubmit} className="cockpit-surface gradient-border shrink-0 rounded-none border-x-0 border-b-0 p-2 shadow-showroom lg:rounded-[18px] lg:border lg:p-3">
+          <form onSubmit={onSubmit} className="cockpit-surface gradient-border shrink-0 rounded-none border-x-0 border-b-0 p-2 shadow-showroom xl:rounded-[18px] xl:border xl:p-3">
             <div className="flex items-end gap-2 sm:gap-3">
               <Textarea
                 ref={inputRef}
@@ -884,7 +884,7 @@ export function ChatPage() {
                   }
                 }}
                 placeholder="Type a sales or recommendation query..."
-                className="min-h-11 max-h-28 flex-1 resize-none border-0 bg-carbon-950/55 text-sm leading-6 shadow-inner ring-1 ring-white/10 focus:ring-neon-cyan/35 sm:text-base sm:leading-7 lg:min-h-20"
+                className="min-h-11 max-h-28 flex-1 resize-none border-0 bg-carbon-950/55 text-sm leading-6 shadow-inner ring-1 ring-white/10 focus:ring-neon-cyan/35 sm:text-base sm:leading-7 xl:min-h-20"
               />
               <Button type="submit" size="lg" disabled={sendMutation.isPending || startMutation.isPending || !message.trim()} className="h-11 shrink-0 px-3 sm:h-12 sm:px-6">
                 <Send className="h-4 w-4" />
