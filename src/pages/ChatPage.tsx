@@ -42,8 +42,8 @@ function formatSessionTime(session: ChatSession) {
 }
 
 const NEAR_BOTTOM_THRESHOLD = 120;
-const WELCOME_MESSAGE_ID = "local-assistant-welcome";
 const DEFAULT_RECOMMENDATION_MODE: RecommendationMode = "graph-rag";
+const WELCOME_MESSAGE_ID = "local-assistant-welcome";
 const MODE_WELCOME_MESSAGES: Record<RecommendationMode, string> = {
   "graph-rag": "สวัสดีครับ ถามเรื่องรุ่น ยี่ห้อ หรือคุณสมบัติที่สนใจได้เลยครับ เช่น งบประมาณเท่านี้ควรเลือกรุ่นไหน หรือรุ่นไหนเหมาะกับการใช้งานของคุณ",
   "user-based": "สวัสดีครับ บอกงบประมาณ การใช้งาน สไตล์ที่ชอบ หรือรุ่นที่สนใจมาได้เลยครับ ผมจะช่วยแนะนำตัวเลือกที่เหมาะกับคุณ",
@@ -229,7 +229,7 @@ export function ChatPage() {
             const assistantIndex = current.findIndex((item) => item.id === "local-assistant-start-stream");
             if (assistantIndex === -1) {
               return [
-                ...current.filter((item) => item.id !== WELCOME_MESSAGE_ID),
+                ...current,
                 {
                   id: "local-assistant-start-stream",
                   role: "assistant",
@@ -633,7 +633,6 @@ export function ChatPage() {
         <div className="relative mb-4 flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-black uppercase tracking-[0.18em] text-neon-cyan">Chat History</p>
-            <p className="mt-1 text-sm text-muted-foreground">Your saved sessions</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <Button type="button" onClick={startNewChat} className="shrink-0 shadow-glow">

@@ -8,6 +8,8 @@ interface ChatMessageProps {
   isStreaming?: boolean;
 }
 
+const HTML_BREAK_TAG_PATTERN = /<br\s*\/?>/gi;
+
 function formatResponseTime(durationMs: number) {
   const totalSeconds = Math.max(0, durationMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -149,7 +151,7 @@ function parseAssistantContent(content: string): ChatContentBlock[] {
   return blocks;
 }
 
-function renderInlineMarkdown(text: string): ReactNode[] {
+function renderInlineMarkdownSegment(text: string, keyPrefix = ""): ReactNode[] {
   const nodes: ReactNode[] = [];
   const boldPattern = /\*\*([^*]+)\*\*/g;
   let lastIndex = 0;
@@ -161,7 +163,7 @@ function renderInlineMarkdown(text: string): ReactNode[] {
     }
 
     nodes.push(
-      <strong key={`${match.index}-${match[1]}`} className="font-black text-foreground">
+      <strong key={`${keyPrefix}${match.index}-${match[1]}`} className="font-black text-foreground">
         {match[1]}
       </strong>,
     );
@@ -173,6 +175,17 @@ function renderInlineMarkdown(text: string): ReactNode[] {
   }
 
   return nodes.length > 0 ? nodes : [text];
+}
+
+function renderInlineMarkdown(text: string): ReactNode[] {
+  return text.replace(HTML_BREAK_TAG_PATTERN, "\n").split("\n").flatMap((line, lineIndex) => {
+    const nodes = renderInlineMarkdownSegment(line, `${lineIndex}-`);
+    if (lineIndex === 0) {
+      return nodes;
+    }
+
+    return [<br key={`html-break-${lineIndex}`} />, ...nodes];
+  });
 }
 
 function StreamingCursor() {

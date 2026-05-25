@@ -77,11 +77,3 @@ export interface ChatMessage {
   createdAt?: string;
   citations?: Array<{ id: string; label: string; url?: string }>;
 }
-
-export interface BotSettings {
-  systemPrompt?: string;
-  retrievalTopK?: number;
-  temperature?: number;
-  graphDepth?: number;
-  enableCitations?: boolean;
-}
