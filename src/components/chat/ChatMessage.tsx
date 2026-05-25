@@ -10,17 +10,19 @@ interface ChatMessageProps {
 
 const HTML_BREAK_TAG_PATTERN = /<br\s*\/?>/gi;
 
-function formatResponseTime(durationMs: number) {
-  const totalSeconds = Math.max(0, durationMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds - minutes * 60;
-  const secondsText = seconds >= 10 || minutes > 0 ? seconds.toFixed(0) : seconds.toFixed(1);
+function formatThaiMessageTime(rawDate?: string) {
+  const date = rawDate ? new Date(rawDate) : new Date();
+  const safeDate = Number.isNaN(date.getTime()) ? new Date() : date;
 
-  if (minutes > 0) {
-    return `ตอบใน ${minutes} นาที ${secondsText} วินาที`;
-  }
+  return `${new Intl.DateTimeFormat("th-TH", {
+    timeZone: "Asia/Bangkok",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(safeDate)} น.`;
+}
 
-  return `ตอบใน ${secondsText} วินาที`;
+function readAssistantFooter(message: NormalizedChatMessage) {
+  return formatThaiMessageTime(message.createdAt);
 }
 
 type ChatContentBlock =
@@ -263,6 +265,7 @@ function AssistantMessageContent({ content, isStreaming = false }: { content: st
 
 export const ChatMessage = memo(function ChatMessage({ message, isStreaming = false }: ChatMessageProps) {
   const isUser = message.role === "user";
+  const assistantFooter = isUser ? undefined : readAssistantFooter(message);
 
   return (
     <div className={cn("flex w-full", isUser ? "justify-end" : "justify-start")}>
@@ -287,8 +290,8 @@ export const ChatMessage = memo(function ChatMessage({ message, isStreaming = fa
         ) : (
           <AssistantMessageContent content={message.content} isStreaming={isStreaming} />
         )}
-        {!isUser && typeof message.responseTimeMs === "number" ? (
-          <p className="mt-3 text-xs font-medium text-muted-foreground">{formatResponseTime(message.responseTimeMs)}</p>
+        {!isUser && assistantFooter ? (
+          <p className="mt-3 text-xs font-medium text-muted-foreground">{assistantFooter}</p>
         ) : null}
       </article>
     </div>

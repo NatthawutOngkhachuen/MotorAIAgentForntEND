@@ -19,6 +19,7 @@ export interface NormalizedChatMessage {
   content: string;
   createdAt?: string;
   responseTimeMs?: number;
+  showResponseDuration?: boolean;
 }
 
 export interface RecommendationStreamHandlers {
@@ -348,6 +349,18 @@ function buildRecommendationUrl(mode: RecommendationMode, action: "start" | "cha
   return `${API_BASE_URL}/api/v1/recommendation/${mode}/${action}`;
 }
 
+function buildRecommendationStartUrl(mode: RecommendationMode) {
+  if (!API_BASE_URL) {
+    throw new ApiError("VITE_API_BASE_URL is not configured.", 0);
+  }
+
+  if (mode === "graph-rag") {
+    return undefined;
+  }
+
+  return `${API_BASE_URL}/api/v1/recommendation/${mode}/start`;
+}
+
 function buildStreamHeaders(hasBody: boolean) {
   const headers = new Headers();
   headers.set("Accept", "text/event-stream");
@@ -497,12 +510,13 @@ export const chatService = {
   },
 
   async startRecommendationChat(mode: RecommendationMode, handlers: RecommendationStreamHandlers = {}) {
-    if (mode !== "user-based") {
+    const startUrl = buildRecommendationStartUrl(mode);
+    if (!startUrl) {
       return undefined;
     }
 
     let sessionId: string | undefined;
-    await streamRecommendationRequest(buildRecommendationUrl(mode, "start"), undefined, {
+    await streamRecommendationRequest(startUrl, undefined, {
       ...handlers,
       onSession: (nextSessionId) => {
         sessionId = nextSessionId;
