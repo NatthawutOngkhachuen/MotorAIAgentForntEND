@@ -18,8 +18,6 @@ export interface NormalizedChatMessage {
   role: "user" | "assistant";
   content: string;
   createdAt?: string;
-  responseTimeMs?: number;
-  showResponseDuration?: boolean;
 }
 
 export interface RecommendationStreamHandlers {

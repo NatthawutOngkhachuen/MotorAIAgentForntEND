@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { motion } from "framer-motion";
-import { Activity, AlertCircle, BarChart3, CircleDot, GitFork, Network, Sparkles, TrendingUp } from "lucide-react";
+import { Activity, BarChart3, CircleDot, GitFork, Network, Sparkles, TrendingUp } from "lucide-react";
 import { EmptyState } from "@/components/states/EmptyState";
 import { ErrorState } from "@/components/states/ErrorState";
 import { LoadingState } from "@/components/states/LoadingState";
@@ -194,7 +194,6 @@ export function AdminDashboardPage() {
       <Panel className="overflow-hidden">
         <div className="flex flex-col gap-5 bg-gradient-to-r from-white via-sky-50/80 to-cyan-50/70 p-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.12em] text-cyan-700">Admin Overview</p>
             <h1 className="mt-1 text-4xl font-semibold leading-none tracking-tight text-slate-900">Dashboard</h1>
           </div>
           {stats && dashboard ? (
@@ -224,7 +223,7 @@ export function AdminDashboardPage() {
 
       {!isGraphEmpty && stats && dashboard ? (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             <MetricTile
               label="Entities"
               value={formatNumber(stats.totalEntities)}
@@ -245,13 +244,6 @@ export function AdminDashboardPage() {
               hint={`${formatNumber(stats.connectedNodes)} nodes linked`}
               icon={Network}
               tone="bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100"
-            />
-            <MetricTile
-              label="Need Review"
-              value={formatNumber(stats.isolatedNodes + stats.unknownNodes)}
-              hint="Isolated or unknown records"
-              icon={AlertCircle}
-              tone="bg-violet-50 text-violet-700 ring-1 ring-violet-100"
             />
           </div>
 

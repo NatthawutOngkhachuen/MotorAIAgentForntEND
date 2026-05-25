@@ -104,31 +104,8 @@ function isNearBottom(container: HTMLDivElement | null) {
   return distanceFromBottom < NEAR_BOTTOM_THRESHOLD;
 }
 
-function withAssistantResponseTimes(messages: NormalizedChatMessage[], measuredResponseTimes: Map<string, number>) {
-  return messages.map((message) => {
-    if (message.role !== "assistant") {
-      return message;
-    }
-
-    const measuredResponseTime = measuredResponseTimes.get(responseTimingKey(message.content));
-    if (typeof measuredResponseTime === "number") {
-      return {
-        ...message,
-        responseTimeMs: measuredResponseTime,
-        showResponseDuration: true,
-      };
-    }
-
-    return message;
-  });
-}
-
 function normalizeChatContent(content: string) {
   return content.replace(/\s+/g, " ").trim();
-}
-
-function responseTimingKey(content: string) {
-  return normalizeChatContent(content);
 }
 
 function historyIncludesMessage(historyMessages: NormalizedChatMessage[], transientMessage: NormalizedChatMessage) {
@@ -180,7 +157,6 @@ export function ChatPage() {
   const scrollFrameRef = useRef<number | null>(null);
   const followUpScrollFrameRef = useRef<number | null>(null);
   const lastHistoryScrollSessionRef = useRef<string | undefined>(undefined);
-  const measuredResponseTimesRef = useRef(new Map<string, number>());
   const accessToken = getStoredAccessToken();
   const hasToken = Boolean(accessToken);
   const currentUserIdentity = getStoredAuthIdentity();
@@ -260,7 +236,6 @@ export function ChatPage() {
   });
   const sendMutation = useMutation({
     mutationFn: async (nextMessage: string) => {
-      const responseStartedAt = performance.now();
       let sessionId = activeSessionId;
 
       if (!sessionId && recommendationMode !== "graph-rag") {
@@ -304,19 +279,7 @@ export function ChatPage() {
         },
       });
 
-      const responseTimeMs = performance.now() - responseStartedAt;
-      setTransientMessages((current) => {
-        const assistantMessage = current.find((item) => item.id === "local-assistant-stream");
-        if (assistantMessage?.content) {
-          measuredResponseTimesRef.current.set(responseTimingKey(assistantMessage.content), responseTimeMs);
-        }
-
-        return current.map((item) =>
-          item.id === "local-assistant-stream" ? { ...item, responseTimeMs, showResponseDuration: true } : item,
-        );
-      });
-
-      return { sessionId, responseTimeMs };
+      return { sessionId };
     },
     onMutate: (nextMessage) => {
       const now = Date.now();
@@ -413,10 +376,7 @@ export function ChatPage() {
   );
   const displayedMessages = useMemo(() => {
     const visibleMessages = [...historyMessagesForDisplay, ...liveMessagesForDisplay].filter((item) => item.id !== WELCOME_MESSAGE_ID);
-    return withAssistantResponseTimes(
-      localWelcomeMessage ? [localWelcomeMessage, ...visibleMessages] : visibleMessages,
-      measuredResponseTimesRef.current,
-    );
+    return localWelcomeMessage ? [localWelcomeMessage, ...visibleMessages] : visibleMessages;
   }, [historyMessagesForDisplay, liveMessagesForDisplay, localWelcomeMessage]);
   const messageScrollKey = useMemo(
     () => displayedMessages.map((item) => `${item.id}:${item.content.length}`).join("|"),
